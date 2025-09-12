@@ -1,0 +1,14 @@
+syntax = "v1"
+
+type Request {
+	Name string `path:"name,options=you|me"`
+}
+
+type Response {
+	Message string `json:"message"`
+}
+
+service optimization-api {
+	@handler OptimizationHandler
+	get /from/:name(Request) returns (Response)
+}

@@ -1,0 +1,312 @@
+name: Build and Deploy
+
+on:
+  push:
+    tags:
+      - 'auth-*'
+      - 'product-*'
+      - 'competitor-*'
+      - 'optimization-*'
+      - 'notification-*'
+      - 'frontend-*'
+      - 'worker-*'
+      - 'scheduler-*'
+      - 'monitor-*'
+      - 'all-*'
+
+jobs:
+  detect-service:
+    runs-on: ubuntu-latest
+    outputs:
+      service: ${{ steps.detect.outputs.service }}
+      tag: ${{ steps.detect.outputs.tag }}
+      build-all: ${{ steps.detect.outputs.build-all }}
+    steps:
+    - name: Detect service from tag
+      id: detect
+      run: |
+        TAG=${GITHUB_REF#refs/tags/}
+        echo "Tag: $TAG"
+        
+        if [[ $TAG == all-* ]]; then
+          echo "service=all" >> $GITHUB_OUTPUT
+          echo "tag=${TAG#all-}" >> $GITHUB_OUTPUT
+          echo "build-all=true" >> $GITHUB_OUTPUT
+        else
+          SERVICE=$(echo $TAG | cut -d'-' -f1)
+          VERSION=$(echo $TAG | cut -d'-' -f2-)
+          echo "service=$SERVICE" >> $GITHUB_OUTPUT
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+          echo "build-all=false" >> $GITHUB_OUTPUT
+        fi
+
+  build:
+    needs: detect-service
+    runs-on: ubuntu-latest
+    if: needs.detect-service.outputs.service != ''
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker images
+      run: |
+        SERVICE="${{ needs.detect-service.outputs.service }}"
+        TAG="${{ needs.detect-service.outputs.tag }}"
+        BUILD_ALL="${{ needs.detect-service.outputs.build-all }}"
+        
+        if [[ "$BUILD_ALL" == "true" ]]; then
+          echo "Building all services..."
+          docker build -f docker/Dockerfile.auth -t amazon-pilot-auth:$TAG .
+          docker build -f docker/Dockerfile.product -t amazon-pilot-product:$TAG .
+          docker build -f docker/Dockerfile.competitor -t amazon-pilot-competitor:$TAG .
+          docker build -f docker/Dockerfile.optimization -t amazon-pilot-optimization:$TAG .
+          docker build -f docker/Dockerfile.notification -t amazon-pilot-notification:$TAG .
+          docker build -f docker/Dockerfile.frontend -t amazon-pilot-frontend:$TAG .
+          docker build -f docker/Dockerfile.worker -t amazon-pilot-worker:$TAG .
+          docker build -f docker/Dockerfile.scheduler -t amazon-pilot-scheduler:$TAG .
+          docker build -f docker/Dockerfile.monitor -t amazon-pilot-monitor:$TAG .
+        else
+          echo "Building $SERVICE service..."
+          case $SERVICE in
+            auth)
+              docker build -f docker/Dockerfile.auth -t amazon-pilot-auth:$TAG .
+              ;;
+            product)
+              docker build -f docker/Dockerfile.product -t amazon-pilot-product:$TAG .
+              ;;
+            competitor)
+              docker build -f docker/Dockerfile.competitor -t amazon-pilot-competitor:$TAG .
+              ;;
+            optimization)
+              docker build -f docker/Dockerfile.optimization -t amazon-pilot-optimization:$TAG .
+              ;;
+            notification)
+              docker build -f docker/Dockerfile.notification -t amazon-pilot-notification:$TAG .
+              ;;
+            frontend)
+              docker build -f docker/Dockerfile.frontend -t amazon-pilot-frontend:$TAG .
+              ;;
+            worker)
+              docker build -f docker/Dockerfile.worker -t amazon-pilot-worker:$TAG .
+              ;;
+            scheduler)
+              docker build -f docker/Dockerfile.scheduler -t amazon-pilot-scheduler:$TAG .
+              ;;
+            monitor)
+              docker build -f docker/Dockerfile.monitor -t amazon-pilot-monitor:$TAG .
+              ;;
+            *)
+              echo "Unknown service: $SERVICE"
+              exit 1
+              ;;
+          esac
+        fi
+    
+    - name: Save Docker images
+      run: |
+        SERVICE="${{ needs.detect-service.outputs.service }}"
+        TAG="${{ needs.detect-service.outputs.tag }}"
+        BUILD_ALL="${{ needs.detect-service.outputs.build-all }}"
+        
+        if [[ "$BUILD_ALL" == "true" ]]; then
+          docker save amazon-pilot-auth:$TAG | gzip > auth-image.tar.gz
+          docker save amazon-pilot-product:$TAG | gzip > product-image.tar.gz
+          docker save amazon-pilot-competitor:$TAG | gzip > competitor-image.tar.gz
+          docker save amazon-pilot-optimization:$TAG | gzip > optimization-image.tar.gz
+          docker save amazon-pilot-notification:$TAG | gzip > notification-image.tar.gz
+          docker save amazon-pilot-frontend:$TAG | gzip > frontend-image.tar.gz
+          docker save amazon-pilot-worker:$TAG | gzip > worker-image.tar.gz
+          docker save amazon-pilot-scheduler:$TAG | gzip > scheduler-image.tar.gz
+          docker save amazon-pilot-monitor:$TAG | gzip > monitor-image.tar.gz
+        else
+          case $SERVICE in
+            auth)
+              docker save amazon-pilot-auth:$TAG | gzip > auth-image.tar.gz
+              ;;
+            product)
+              docker save amazon-pilot-product:$TAG | gzip > product-image.tar.gz
+              ;;
+            competitor)
+              docker save amazon-pilot-competitor:$TAG | gzip > competitor-image.tar.gz
+              ;;
+            optimization)
+              docker save amazon-pilot-optimization:$TAG | gzip > optimization-image.tar.gz
+              ;;
+            notification)
+              docker save amazon-pilot-notification:$TAG | gzip > notification-image.tar.gz
+              ;;
+            frontend)
+              docker save amazon-pilot-frontend:$TAG | gzip > frontend-image.tar.gz
+              ;;
+            worker)
+              docker save amazon-pilot-worker:$TAG | gzip > worker-image.tar.gz
+              ;;
+            scheduler)
+              docker save amazon-pilot-scheduler:$TAG | gzip > scheduler-image.tar.gz
+              ;;
+            monitor)
+              docker save amazon-pilot-monitor:$TAG | gzip > monitor-image.tar.gz
+              ;;
+          esac
+        fi
+    
+    - name: Upload Docker images
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-images-${{ needs.detect-service.outputs.service }}-${{ needs.detect-service.outputs.tag }}
+        path: |
+          *-image.tar.gz
+
+  deploy:
+    needs: [detect-service, build]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download Docker images
+      uses: actions/download-artifact@v4
+      with:
+        name: docker-images-${{ needs.detect-service.outputs.service }}-${{ needs.detect-service.outputs.tag }}
+    
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          # 进入部署目录
+          cd /opt/amazon-pilot
+          
+          # 滚动更新策略 - 零停机部署
+          SERVICE="${{ needs.detect-service.outputs.service }}"
+          TAG="${{ needs.detect-service.outputs.tag }}"
+          BUILD_ALL="${{ needs.detect-service.outputs.build-all }}"
+          
+          if [[ "$BUILD_ALL" == "true" ]]; then
+            echo "Performing rolling update for all services..."
+            # 对于全量更新，使用滚动更新策略
+            docker-compose up -d --no-deps --scale auth-service=2 auth-service
+            sleep 10
+            docker-compose up -d --no-deps --scale product-service=2 product-service
+            sleep 10
+            docker-compose up -d --no-deps --scale competitor-service=2 competitor-service
+            sleep 10
+            docker-compose up -d --no-deps --scale optimization-service=2 optimization-service
+            sleep 10
+            docker-compose up -d --no-deps --scale notification-service=2 notification-service
+            sleep 10
+            docker-compose up -d --no-deps frontend
+            sleep 10
+            docker-compose up -d --no-deps asynq-worker
+            sleep 10
+            docker-compose up -d --no-deps asynq-scheduler
+            sleep 10
+            docker-compose up -d --no-deps asynq-monitor
+            sleep 10
+            # 清理旧容器
+            docker-compose up -d --scale auth-service=1 auth-service
+            docker-compose up -d --scale product-service=1 product-service
+            docker-compose up -d --scale competitor-service=1 competitor-service
+            docker-compose up -d --scale optimization-service=1 optimization-service
+            docker-compose up -d --scale notification-service=1 notification-service
+          else
+            echo "Performing rolling update for $SERVICE service..."
+            case $SERVICE in
+              auth)
+                docker-compose up -d --no-deps --scale auth-service=2 auth-service
+                sleep 10
+                docker-compose up -d --scale auth-service=1 auth-service
+                ;;
+              product)
+                docker-compose up -d --no-deps --scale product-service=2 product-service
+                sleep 10
+                docker-compose up -d --scale product-service=1 product-service
+                ;;
+              competitor)
+                docker-compose up -d --no-deps --scale competitor-service=2 competitor-service
+                sleep 10
+                docker-compose up -d --scale competitor-service=1 competitor-service
+                ;;
+              optimization)
+                docker-compose up -d --no-deps --scale optimization-service=2 optimization-service
+                sleep 10
+                docker-compose up -d --scale optimization-service=1 optimization-service
+                ;;
+              notification)
+                docker-compose up -d --no-deps --scale notification-service=2 notification-service
+                sleep 10
+                docker-compose up -d --scale notification-service=1 notification-service
+                ;;
+              frontend)
+                docker-compose up -d --no-deps frontend
+                ;;
+              worker)
+                docker-compose up -d --no-deps asynq-worker
+                ;;
+              scheduler)
+                docker-compose up -d --no-deps asynq-scheduler
+                ;;
+              monitor)
+                docker-compose up -d --no-deps asynq-monitor
+                ;;
+            esac
+          fi
+          
+          # 清理旧镜像
+          docker image prune -f
+          
+          # 加载新镜像
+          for file in *-image.tar.gz; do
+            if [ -f "$file" ]; then
+              echo "Loading $file..."
+              gunzip -c "$file" | docker load
+            fi
+          done
+          
+          # 更新 docker-compose.yml 中的镜像标签
+          if [[ "$BUILD_ALL" == "true" ]]; then
+            sed -i "s/:latest/:$TAG/g" docker-compose.yml
+          else
+            case $SERVICE in
+              auth)
+                sed -i "s/amazon-pilot-auth:latest/amazon-pilot-auth:$TAG/g" docker-compose.yml
+                ;;
+              product)
+                sed -i "s/amazon-pilot-product:latest/amazon-pilot-product:$TAG/g" docker-compose.yml
+                ;;
+              competitor)
+                sed -i "s/amazon-pilot-competitor:latest/amazon-pilot-competitor:$TAG/g" docker-compose.yml
+                ;;
+              optimization)
+                sed -i "s/amazon-pilot-optimization:latest/amazon-pilot-optimization:$TAG/g" docker-compose.yml
+                ;;
+              notification)
+                sed -i "s/amazon-pilot-notification:latest/amazon-pilot-notification:$TAG/g" docker-compose.yml
+                ;;
+              frontend)
+                sed -i "s/amazon-pilot-frontend:latest/amazon-pilot-frontend:$TAG/g" docker-compose.yml
+                ;;
+              worker)
+                sed -i "s/amazon-pilot-worker:latest/amazon-pilot-worker:$TAG/g" docker-compose.yml
+                ;;
+              scheduler)
+                sed -i "s/amazon-pilot-scheduler:latest/amazon-pilot-scheduler:$TAG/g" docker-compose.yml
+                ;;
+              monitor)
+                sed -i "s/amazon-pilot-monitor:latest/amazon-pilot-monitor:$TAG/g" docker-compose.yml
+                ;;
+            esac
+          fi
+          
+          # 服务已经在上面启动了，这里只需要等待健康检查
+          
+          # 等待服务启动
+          sleep 30
+          
+          # 健康检查
+          curl -f http://localhost/health || exit 1
+          
+          echo "Deployment completed successfully!"

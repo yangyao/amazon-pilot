@@ -1,0 +1,58 @@
+{
+  "name": "amazon-pilot-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@ant-design/pro-components": "^2.6.43",
+    "@ant-design/pro-layout": "^7.16.0",
+    "@ant-design/pro-table": "^3.11.3",
+    "@ant-design/pro-form": "^2.10.1",
+    "@ant-design/pro-card": "^2.4.4",
+    "@ant-design/pro-descriptions": "^2.4.2",
+    "@ant-design/pro-list": "^2.5.2",
+    "@ant-design/pro-skeleton": "^2.0.1",
+    "@ant-design/pro-utils": "^2.6.2",
+    "@ant-design/icons": "^5.2.6",
+    "antd": "^5.12.8",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.1",
+    "axios": "^1.6.2",
+    "dayjs": "^1.11.10",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4",
+    "react-query": "^3.39.3",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@types/lodash": "^4.14.202",
+    "@types/node": "^20.10.4",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "vite-plugin-mock": "^3.0.0",
+    "vite-plugin-windicss": "^1.9.3",
+    "windicss": "^3.5.6"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext ts,tsx --fix"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
