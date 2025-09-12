@@ -32,4 +32,5 @@ type RedisConfig struct {
 type AuthConfig struct {
 	JWTSecret    string `json:"jwtSecret"`
 	AccessExpire int64  `json:"accessExpire,default=86400"`
+	AccessSecret string `json:"accessSecret"`
 }

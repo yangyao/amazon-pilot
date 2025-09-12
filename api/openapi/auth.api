@@ -90,7 +90,12 @@ service auth-api {
 
 	@handler register
 	post /auth/register (RegisterRequest) returns (RegisterResponse)
+}
 
+@server (
+	jwt: Auth
+)
+service auth-api {
 	// Protected user profile endpoints (JWT required)
 	@handler getProfile
 	get /users/profile returns (ProfileResponse)

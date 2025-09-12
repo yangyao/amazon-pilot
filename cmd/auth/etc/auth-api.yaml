@@ -16,3 +16,4 @@ Redis:
 Auth:
   jwtSecret: "amazon-pilot-jwt-secret-2025"
   accessExpire: 86400
+  accessSecret: "amazon-pilot-jwt-secret-2025"

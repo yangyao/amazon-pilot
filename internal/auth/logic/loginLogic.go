@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"amazonpilot/internal/auth/svc"
@@ -32,7 +33,7 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginResponse, 
 	var user models.User
 	if err := l.svcCtx.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, errors.NewError(401, "Invalid email or password")
+			return nil, errors.NewUnauthorizedError("Invalid email or password")
 		}
 		l.Errorf("Database error: %v", err)
 		return nil, errors.ErrInternalServer
@@ -40,12 +41,12 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginResponse, 
 
 	// 验证密码
 	if !user.CheckPassword(req.Password) {
-		return nil, errors.NewError(401, "Invalid email or password")
+		return nil, errors.NewUnauthorizedError("Invalid email or password")
 	}
 
 	// 检查用户是否激活
 	if !user.IsActive {
-		return nil, errors.NewError(403, "Account is deactivated")
+		return nil, errors.NewAPIError(http.StatusForbidden, errors.CodeForbidden, "Account is deactivated")
 	}
 
 	// 生成JWT令牌

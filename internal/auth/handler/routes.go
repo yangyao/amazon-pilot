@@ -34,6 +34,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/ping",
 				Handler: PingHandler(serverCtx),
 			},
+		},
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
 			{
 				Method:  http.MethodGet,
 				Path:    "/users/profile",
@@ -45,5 +50,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: updateProfileHandler(serverCtx),
 			},
 		},
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
 	)
 }

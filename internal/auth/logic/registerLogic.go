@@ -28,26 +28,40 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 }
 
 func (l *RegisterLogic) Register(req *types.RegisterRequest) (resp *types.RegisterResponse, err error) {
-	// 验证邮箱格式
+	// 验证输入
+	var fieldErrors []errors.FieldError
+	
 	if !isValidEmail(req.Email) {
-		return nil, errors.NewError(400, "Invalid email format")
+		fieldErrors = append(fieldErrors, errors.FieldError{
+			Field:   "email",
+			Message: "Invalid email format",
+		})
 	}
 
-	// 验证密码强度
 	if len(req.Password) < 6 {
-		return nil, errors.NewError(400, "Password must be at least 6 characters")
+		fieldErrors = append(fieldErrors, errors.FieldError{
+			Field:   "password",
+			Message: "Password must be at least 6 characters",
+		})
 	}
 
-	// 验证计划类型
 	if req.Plan != "" && req.Plan != "basic" && req.Plan != "premium" && req.Plan != "enterprise" {
-		return nil, errors.NewError(400, "Invalid plan type")
+		fieldErrors = append(fieldErrors, errors.FieldError{
+			Field:   "plan",
+			Message: "Plan must be one of: basic, premium, enterprise",
+		})
+	}
+
+	// 如果有验证错误，返回验证错误
+	if len(fieldErrors) > 0 {
+		return nil, errors.NewValidationError("Invalid request parameters", fieldErrors)
 	}
 
 	// 检查用户是否已存在
 	var existingUser models.User
 	err = l.svcCtx.DB.Where("email = ?", req.Email).First(&existingUser).Error
 	if err == nil {
-		return nil, errors.NewError(409, "User already exists")
+		return nil, errors.NewConflictError("User already exists")
 	} else if err != gorm.ErrRecordNotFound {
 		l.Errorf("Database error: %v", err)
 		return nil, errors.ErrInternalServer
