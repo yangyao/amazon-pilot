@@ -13,28 +13,31 @@ import (
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodPost,
-				Path:    "/auth/login",
-				Handler: loginHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/auth/register",
-				Handler: registerHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/health",
-				Handler: healthHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/ping",
-				Handler: pingHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RateLimitMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/auth/login",
+					Handler: loginHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/auth/register",
+					Handler: registerHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/health",
+					Handler: healthHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/ping",
+					Handler: pingHandler(serverCtx),
+				},
+			}...,
+		),
 	)
 
 	server.AddRoutes(

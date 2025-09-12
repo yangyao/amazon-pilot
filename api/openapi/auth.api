@@ -76,6 +76,9 @@ type (
 	}
 )
 
+@server (
+	middleware: RateLimitMiddleware
+)
 service auth-api {
 	// Health check endpoints (no auth required)
 	@handler ping

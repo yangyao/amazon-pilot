@@ -2,16 +2,19 @@ package svc
 
 import (
 	"amazonpilot/internal/auth/config"
+	"amazonpilot/internal/auth/middleware"
 	"amazonpilot/internal/pkg/auth"
 	"amazonpilot/internal/pkg/database"
 
+	"github.com/zeromicro/go-zero/rest"
 	"gorm.io/gorm"
 )
 
 type ServiceContext struct {
-	Config  config.Config
-	DB      *gorm.DB
-	JWTAuth *auth.JWTAuth
+	Config               config.Config
+	DB                   *gorm.DB
+	JWTAuth              *auth.JWTAuth
+	RateLimitMiddleware  rest.Middleware
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -28,9 +31,13 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	// 初始化JWT认证
 	jwtAuth := auth.NewJWTAuth(c.Auth.JWTSecret, c.Auth.AccessExpire)
 
+	// 初始化中间件
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware()
+
 	return &ServiceContext{
-		Config:  c,
-		DB:      db,
-		JWTAuth: jwtAuth,
+		Config:              c,
+		DB:                  db,
+		JWTAuth:             jwtAuth,
+		RateLimitMiddleware: rateLimitMiddleware.Handle,
 	}
 }
