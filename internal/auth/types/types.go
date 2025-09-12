@@ -3,10 +3,75 @@
 
 package types
 
-type Request struct {
-	Name string `path:"name,options=you|me"`
+type HealthResponse struct {
+	Service string `json:"service"`
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Uptime  int64  `json:"uptime"`
 }
 
-type Response struct {
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type LoginResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int64  `json:"expires_in"`
+	User        User   `json:"user"`
+}
+
+type NotificationSettings struct {
+	Email bool `json:"email"`
+	Push  bool `json:"push"`
+}
+
+type PingResponse struct {
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+type ProfileResponse struct {
+	User     User         `json:"user"`
+	Settings UserSettings `json:"settings"`
+}
+
+type ProfileUpdateRequest struct {
+	CompanyName          string                `json:"company_name,optional"`
+	NotificationSettings *NotificationSettings `json:"notification_settings,optional"`
+}
+
+type ProfileUpdateResponse struct {
 	Message string `json:"message"`
+}
+
+type RegisterRequest struct {
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	CompanyName string `json:"company_name,optional"`
+	Plan        string `json:"plan,default=basic"`
+}
+
+type RegisterResponse struct {
+	Message string `json:"message"`
+	UserID  string `json:"user_id"`
+}
+
+type User struct {
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	CompanyName string `json:"company_name,omitempty"`
+	Plan        string `json:"plan"`
+	IsActive    bool   `json:"is_active"`
+	CreatedAt   string `json:"created_at"`
+}
+
+type UserSettings struct {
+	NotificationEmail bool   `json:"notification_email"`
+	NotificationPush  bool   `json:"notification_push"`
+	Timezone          string `json:"timezone"`
+	Currency          string `json:"currency"`
+	TrackingFrequency string `json:"tracking_frequency"`
 }

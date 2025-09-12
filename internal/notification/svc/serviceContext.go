@@ -1,7 +1,7 @@
 package svc
 
 import (
-	"amazonpilot/internal/notification/internal/config"
+	"amazonpilot/internal/notification/config"
 )
 
 type ServiceContext struct {

@@ -1,0 +1,101 @@
+syntax = "v1"
+
+info (
+	title:   "Amazon Monitor Authentication API"
+	desc:    "Authentication service for Amazon seller monitoring tool"
+	author:  "Amazon Pilot Team"
+	email:   "team@amazon-pilot.com"
+	version: "v1"
+)
+
+type (
+	// Auth requests and responses
+	LoginRequest {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	LoginResponse {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		ExpiresIn   int64  `json:"expires_in"`
+		User        User   `json:"user"`
+	}
+	RegisterRequest {
+		Email       string `json:"email"`
+		Password    string `json:"password"`
+		CompanyName string `json:"company_name,optional"`
+		Plan        string `json:"plan,default=basic"`
+	}
+	RegisterResponse {
+		Message string `json:"message"`
+		UserID  string `json:"user_id"`
+	}
+	// User types
+	User {
+		ID          string `json:"id"`
+		Email       string `json:"email"`
+		CompanyName string `json:"company_name,omitempty"`
+		Plan        string `json:"plan"`
+		IsActive    bool   `json:"is_active"`
+		CreatedAt   string `json:"created_at"`
+	}
+	// Profile management
+	ProfileUpdateRequest {
+		CompanyName          string                `json:"company_name,optional"`
+		NotificationSettings *NotificationSettings `json:"notification_settings,optional"`
+	}
+	NotificationSettings {
+		Email bool `json:"email"`
+		Push  bool `json:"push"`
+	}
+	ProfileUpdateResponse {
+		Message string `json:"message"`
+	}
+	ProfileResponse {
+		User     User         `json:"user"`
+		Settings UserSettings `json:"settings"`
+	}
+	UserSettings {
+		NotificationEmail bool   `json:"notification_email"`
+		NotificationPush  bool   `json:"notification_push"`
+		Timezone          string `json:"timezone"`
+		Currency          string `json:"currency"`
+		TrackingFrequency string `json:"tracking_frequency"`
+	}
+	// Health check responses
+	PingResponse {
+		Status    string `json:"status"`
+		Message   string `json:"message"`
+		Timestamp int64  `json:"timestamp"`
+	}
+	HealthResponse {
+		Service string `json:"service"`
+		Status  string `json:"status"`
+		Version string `json:"version"`
+		Uptime  int64  `json:"uptime"`
+	}
+)
+
+service auth-api {
+	// Health check endpoints (no auth required)
+	@handler ping
+	get /ping returns (PingResponse)
+
+	@handler health
+	get /health returns (HealthResponse)
+
+	// Authentication endpoints
+	@handler login
+	post /auth/login (LoginRequest) returns (LoginResponse)
+
+	@handler register
+	post /auth/register (RegisterRequest) returns (RegisterResponse)
+
+	// Protected user profile endpoints (JWT required)
+	@handler getProfile
+	get /users/profile returns (ProfileResponse)
+
+	@handler updateProfile
+	put /users/profile (ProfileUpdateRequest) returns (ProfileUpdateResponse)
+}
+

@@ -16,7 +16,7 @@ RUN go mod download
 COPY . .
 
 # 构建 Scheduler 服务
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o scheduler-service ./internal/cmd/scheduler
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o scheduler-service ./cmd/scheduler
 
 # 运行阶段
 FROM alpine:latest

@@ -3,9 +3,9 @@ package handler
 import (
 	"net/http"
 
-	"amazonpilot/internal/product/internal/logic"
-	"amazonpilot/internal/product/internal/svc"
-	"amazonpilot/internal/product/internal/types"
+	"amazonpilot/internal/product/logic"
+	"amazonpilot/internal/product/svc"
+	"amazonpilot/internal/product/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 

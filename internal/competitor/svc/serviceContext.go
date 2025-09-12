@@ -1,7 +1,7 @@
 package svc
 
 import (
-	"amazonpilot/internal/competitor/internal/config"
+	"amazonpilot/internal/competitor/config"
 )
 
 type ServiceContext struct {

@@ -3,9 +3,9 @@ package handler
 import (
 	"net/http"
 
-	"amazonpilot/internal/notification/internal/logic"
-	"amazonpilot/internal/notification/internal/svc"
-	"amazonpilot/internal/notification/internal/types"
+	"amazonpilot/internal/notification/logic"
+	"amazonpilot/internal/notification/svc"
+	"amazonpilot/internal/notification/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 

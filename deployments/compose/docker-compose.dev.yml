@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # TimescaleDB (基于PostgreSQL，优化时序数据)
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: amazon-pilot-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: amazon_pilot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: amazon123
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    networks:
+      - amazon-pilot-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d amazon_pilot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis (缓存层)
+  redis:
+    image: redis:7-alpine
+    container_name: amazon-pilot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - amazon-pilot-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # Redis Commander (Redis管理界面)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: amazon-pilot-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - amazon-pilot-network
+    depends_on:
+      - redis
+
+  # pgAdmin (PostgreSQL管理界面)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: amazon-pilot-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@amazon-pilot.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - amazon-pilot-network
+    depends_on:
+      - timescaledb
+
+volumes:
+  timescaledb_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  amazon-pilot-network:
+    driver: bridge

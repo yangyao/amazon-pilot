@@ -3,8 +3,8 @@ package logic
 import (
 	"context"
 
-	"amazonpilot/internal/product/internal/svc"
-	"amazonpilot/internal/product/internal/types"
+	"amazonpilot/internal/product/svc"
+	"amazonpilot/internal/product/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

@@ -3,8 +3,8 @@ package logic
 import (
 	"context"
 
-	"amazonpilot/internal/notification/internal/svc"
-	"amazonpilot/internal/notification/internal/types"
+	"amazonpilot/internal/notification/svc"
+	"amazonpilot/internal/notification/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

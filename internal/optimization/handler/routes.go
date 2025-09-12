@@ -6,7 +6,7 @@ package handler
 import (
 	"net/http"
 
-	"amazonpilot/internal/optimization/internal/svc"
+	"amazonpilot/internal/optimization/svc"
 
 	"github.com/zeromicro/go-zero/rest"
 )

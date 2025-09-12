@@ -16,7 +16,7 @@ RUN go mod download
 COPY . .
 
 # 构建竞品服务
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o competitor-service ./internal/cmd/competitor
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o competitor-service ./cmd/competitor
 
 # 运行阶段
 FROM alpine:latest
@@ -33,7 +33,7 @@ RUN adduser -D -s /bin/sh appuser
 
 # 从 builder 阶段复制二进制文件
 COPY --from=builder /app/competitor-service /app/competitor-service
-COPY --from=builder /app/internal/cmd/competitor/etc /app/etc
+COPY --from=builder /app/cmd/competitor/etc /app/etc
 
 # 设定权限
 RUN chown -R appuser:appuser /app
