@@ -3,12 +3,13 @@ package handler
 import (
 	"net/http"
 
-	"github.com/zeromicro/go-zero/rest/httpx"
 	"amazonpilot/internal/auth/logic"
 	"amazonpilot/internal/auth/svc"
+
+	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func PingHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func pingHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l := logic.NewPingLogic(r.Context(), svcCtx)
 		resp, err := l.Ping()

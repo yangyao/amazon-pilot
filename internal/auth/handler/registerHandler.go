@@ -3,10 +3,11 @@ package handler
 import (
 	"net/http"
 
-	"github.com/zeromicro/go-zero/rest/httpx"
 	"amazonpilot/internal/auth/logic"
 	"amazonpilot/internal/auth/svc"
 	"amazonpilot/internal/auth/types"
+
+	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func registerHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
