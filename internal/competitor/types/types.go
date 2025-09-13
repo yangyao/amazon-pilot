@@ -3,10 +3,132 @@
 
 package types
 
-type Request struct {
-	Name string `path:"name,options=you|me"`
+type AddCompetitorRequest struct {
+	AnalysisID string `path:"analysis_id"`
+	ASIN       string `json:"asin"`
 }
 
-type Response struct {
+type AddCompetitorResponse struct {
 	Message string `json:"message"`
+}
+
+type AnalysisGroup struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Description     string `json:"description,omitempty"`
+	MainProductASIN string `json:"main_product_asin"`
+	CompetitorCount int    `json:"competitor_count"`
+	Status          string `json:"status"`
+	LastAnalysis    string `json:"last_analysis,omitempty"`
+	CreatedAt       string `json:"created_at"`
+}
+
+type BSRRange struct {
+	Best    int     `json:"best"`
+	Worst   int     `json:"worst"`
+	Average float64 `json:"average"`
+}
+
+type CompetitorAnalysis struct {
+	PriceRange     PriceRange     `json:"price_range"`
+	BSRRange       BSRRange       `json:"bsr_range"`
+	RatingAnalysis RatingAnalysis `json:"rating_analysis"`
+	MarketInsights []string       `json:"market_insights"`
+}
+
+type CompetitorProduct struct {
+	ID          string  `json:"id"`
+	ASIN        string  `json:"asin"`
+	Title       string  `json:"title,omitempty"`
+	Brand       string  `json:"brand,omitempty"`
+	Price       float64 `json:"price"`
+	BSR         int     `json:"bsr,omitempty"`
+	Rating      float64 `json:"rating,omitempty"`
+	ReviewCount int     `json:"review_count"`
+	IsWinner    bool    `json:"is_winner,omitempty"`
+}
+
+type CreateAnalysisRequest struct {
+	Name            string   `json:"name"`
+	Description     string   `json:"description,optional"`
+	MainProductID   string   `json:"main_product_id"`
+	UpdateFrequency string   `json:"update_frequency,default=daily"`
+	Metrics         []string `json:"analysis_metrics,optional"`
+}
+
+type CreateAnalysisResponse struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	MainProductID string `json:"main_product_id"`
+	Status        string `json:"status"`
+	CreatedAt     string `json:"created_at"`
+}
+
+type GetAnalysisRequest struct {
+	AnalysisID string `path:"analysis_id"`
+}
+
+type GetAnalysisResponse struct {
+	ID              string              `json:"id"`
+	Name            string              `json:"name"`
+	Description     string              `json:"description,omitempty"`
+	MainProduct     CompetitorProduct   `json:"main_product"`
+	Competitors     []CompetitorProduct `json:"competitors"`
+	Analysis        CompetitorAnalysis  `json:"analysis"`
+	Recommendations []Recommendation    `json:"recommendations"`
+	Status          string              `json:"status"`
+	LastUpdated     string              `json:"last_updated"`
+}
+
+type HealthResponse struct {
+	Service string `json:"service"`
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Uptime  int64  `json:"uptime"`
+}
+
+type ListAnalysisRequest struct {
+	Page   int    `form:"page,default=1"`
+	Limit  int    `form:"limit,default=20"`
+	Status string `form:"status,optional"`
+}
+
+type ListAnalysisResponse struct {
+	Groups     []AnalysisGroup `json:"groups"`
+	Pagination Pagination      `json:"pagination"`
+}
+
+type Pagination struct {
+	Page       int `json:"page"`
+	Limit      int `json:"limit"`
+	Total      int `json:"total"`
+	TotalPages int `json:"total_pages"`
+}
+
+type PingResponse struct {
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+type PriceRange struct {
+	Min     float64 `json:"min"`
+	Max     float64 `json:"max"`
+	Average float64 `json:"average"`
+	Median  float64 `json:"median"`
+}
+
+type RatingAnalysis struct {
+	Average      float64 `json:"average"`
+	HighestRated string  `json:"highest_rated_asin"`
+	LowestRated  string  `json:"lowest_rated_asin"`
+	MostReviews  string  `json:"most_reviews_asin"`
+}
+
+type Recommendation struct {
+	Type        string `json:"type"`
+	Priority    string `json:"priority"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Impact      string `json:"impact"`
 }

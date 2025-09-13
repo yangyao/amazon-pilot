@@ -1,7 +1,9 @@
 package config
 
-import "github.com/zeromicro/go-zero/rest"
+import (
+	"amazonpilot/internal/pkg/config"
+)
 
 type Config struct {
-	rest.RestConf
+	config.BaseConfig
 }

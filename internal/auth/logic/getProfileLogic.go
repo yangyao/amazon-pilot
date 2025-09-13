@@ -7,7 +7,9 @@ import (
 	"amazonpilot/internal/auth/svc"
 	"amazonpilot/internal/auth/types"
 	"amazonpilot/internal/pkg/errors"
+	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
+	"amazonpilot/internal/pkg/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
@@ -28,15 +30,10 @@ func NewGetProfileLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetPro
 }
 
 func (l *GetProfileLogic) GetProfile() (resp *types.ProfileResponse, err error) {
-	// 从go-zero JWT context获取用户ID
-	userID := l.ctx.Value("user_id")
-	if userID == nil {
-		return nil, errors.ErrUnauthorized
-	}
-	
-	userIDStr, ok := userID.(string)
-	if !ok {
-		return nil, errors.ErrUnauthorized
+	// 从JWT context获取用户ID
+	userIDStr, err := utils.GetUserIDFromContext(l.ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	// 查找用户
@@ -88,6 +85,9 @@ func (l *GetProfileLogic) GetProfile() (resp *types.ProfileResponse, err error) 
 		},
 	}
 
-	l.Infof("User %s profile retrieved successfully", user.Email)
+	// 使用结构化日志记录业务操作
+	serviceLogger := logger.NewServiceLogger("auth")
+	serviceLogger.LogBusinessOperation(l.ctx, "get_profile", "user", userIDStr, "success")
+	
 	return resp, nil
 }

@@ -23,7 +23,7 @@ fi
 
 echo "🚀 启动服务: $SERVICE"
 echo "📍 配置文件: cmd/$SERVICE/etc/$SERVICE-api.yaml"
-echo "🌐 访问地址: http://localhost:8888"
+echo "🌐 访问地址: http://localhost:3000"
 echo ""
 
 go run "cmd/$SERVICE/main.go" -f "cmd/$SERVICE/etc/$SERVICE-api.yaml"

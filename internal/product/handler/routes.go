@@ -13,12 +13,54 @@ import (
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/from/:name",
-				Handler: ProductHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RateLimitMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/health",
+					Handler: healthHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/ping",
+					Handler: pingHandler(serverCtx),
+				},
+			}...,
+		),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RateLimitMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/products/:product_id",
+					Handler: getProductDetailsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/products/:product_id/history",
+					Handler: getProductHistoryHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodDelete,
+					Path:    "/products/:product_id/track",
+					Handler: stopProductTrackingHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/products/track",
+					Handler: addProductTrackingHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/products/tracked",
+					Handler: getTrackedProductsHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
 	)
 }

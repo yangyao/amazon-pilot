@@ -13,12 +13,51 @@ import (
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/from/:name",
-				Handler: CompetitorHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RateLimitMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/health",
+					Handler: healthHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/ping",
+					Handler: pingHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/competitor"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RateLimitMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/analysis",
+					Handler: createAnalysisGroupHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/analysis",
+					Handler: listAnalysisGroupsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/analysis/:analysis_id",
+					Handler: getAnalysisResultsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/analysis/:analysis_id/competitors",
+					Handler: addCompetitorHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+		rest.WithPrefix("/competitor"),
 	)
 }

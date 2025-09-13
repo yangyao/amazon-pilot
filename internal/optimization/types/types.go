@@ -3,10 +3,90 @@
 
 package types
 
-type Request struct {
-	Name string `path:"name,options=you|me"`
+type CreateOptimizationRequest struct {
+	Title            string `json:"title"`
+	Description      string `json:"description,optional"`
+	ProductID        string `json:"product_id"`
+	OptimizationType string `json:"optimization_type,default=listing"`
+	Priority         string `json:"priority,default=medium"`
 }
 
-type Response struct {
-	Message string `json:"message"`
+type CreateOptimizationResponse struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	ProductID string `json:"product_id"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
+}
+
+type GetOptimizationRequest struct {
+	TaskID string `path:"task_id"`
+}
+
+type GetOptimizationResponse struct {
+	ID               string   `json:"id"`
+	Title            string   `json:"title"`
+	Description      string   `json:"description,omitempty"`
+	ProductASIN      string   `json:"product_asin"`
+	OptimizationType string   `json:"optimization_type"`
+	Priority         string   `json:"priority"`
+	Status           string   `json:"status"`
+	AISuggestions    []string `json:"ai_suggestions,omitempty"`
+	ImpactScore      float64  `json:"impact_score,omitempty"`
+	EstimatedHours   int      `json:"estimated_hours,omitempty"`
+	CreatedAt        string   `json:"created_at"`
+	UpdatedAt        string   `json:"updated_at,omitempty"`
+}
+
+type GetStatsResponse struct {
+	TotalTasks         int     `json:"total_tasks"`
+	PendingTasks       int     `json:"pending_tasks"`
+	CompletedTasks     int     `json:"completed_tasks"`
+	AverageImpactScore float64 `json:"average_impact_score"`
+}
+
+type HealthResponse struct {
+	Service string `json:"service"`
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Uptime  int64  `json:"uptime"`
+}
+
+type ListOptimizationRequest struct {
+	Page     int    `form:"page,default=1"`
+	Limit    int    `form:"limit,default=20"`
+	Status   string `form:"status,optional"`
+	Priority string `form:"priority,optional"`
+}
+
+type ListOptimizationResponse struct {
+	Tasks      []OptimizationTask `json:"tasks"`
+	Pagination Pagination         `json:"pagination"`
+}
+
+type OptimizationTask struct {
+	ID               string  `json:"id"`
+	Title            string  `json:"title"`
+	Description      string  `json:"description,omitempty"`
+	ProductASIN      string  `json:"product_asin"`
+	OptimizationType string  `json:"optimization_type"`
+	Priority         string  `json:"priority"`
+	Status           string  `json:"status"`
+	ImpactScore      float64 `json:"impact_score,omitempty"`
+	EstimatedHours   int     `json:"estimated_hours,omitempty"`
+	CreatedAt        string  `json:"created_at"`
+	UpdatedAt        string  `json:"updated_at,omitempty"`
+}
+
+type Pagination struct {
+	Page       int `json:"page"`
+	Limit      int `json:"limit"`
+	Total      int `json:"total"`
+	TotalPages int `json:"total_pages"`
+}
+
+type PingResponse struct {
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+	Timestamp int64  `json:"timestamp"`
 }

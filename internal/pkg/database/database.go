@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -22,28 +23,18 @@ type Config struct {
 	ConnMaxLifetime int    `json:"connMaxLifetime,default=3600"` // seconds
 }
 
-// NewConnection 创建数据库连接
+// NewConnection 创建数据库连接 (优先使用DSN)
 func NewConnection(config *Config) (*gorm.DB, error) {
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s",
-		config.Host, config.User, config.Password, config.Database, config.Port, config.SSLMode)
-
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	})
-	if err != nil {
-		return nil, err
+	// 优先从环境变量读取DSN
+	dsn := os.Getenv("SUPABASE_URL")
+	
+	if dsn == "" {
+		// 回退到配置参数构建DSN
+		dsn = fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
+			config.User, config.Password, config.Host, config.Port, config.Database, config.SSLMode)
 	}
 
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-
-	sqlDB.SetMaxIdleConns(config.MaxIdleConns)
-	sqlDB.SetMaxOpenConns(config.MaxOpenConns)
-	sqlDB.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetime) * time.Second)
-
-	return db, nil
+	return NewConnectionWithDSN(dsn, config)
 }
 
 // NewConnectionWithDSN 使用DSN创建数据库连接

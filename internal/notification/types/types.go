@@ -3,10 +3,52 @@
 
 package types
 
-type Request struct {
-	Name string `path:"name,options=you|me"`
+type GetNotificationsRequest struct {
+	Page   int    `form:"page,default=1"`
+	Limit  int    `form:"limit,default=20"`
+	Type   string `form:"type,optional"`
+	IsRead string `form:"is_read,optional"`
 }
 
-type Response struct {
+type GetNotificationsResponse struct {
+	Notifications []Notification `json:"notifications"`
+	Pagination    Pagination     `json:"pagination"`
+}
+
+type HealthResponse struct {
+	Service string `json:"service"`
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Uptime  int64  `json:"uptime"`
+}
+
+type MarkReadRequest struct {
+	NotificationID string `path:"notification_id"`
+}
+
+type MarkReadResponse struct {
 	Message string `json:"message"`
+}
+
+type Notification struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	Title     string `json:"title"`
+	Message   string `json:"message"`
+	Severity  string `json:"severity"`
+	IsRead    bool   `json:"is_read"`
+	CreatedAt string `json:"created_at"`
+}
+
+type Pagination struct {
+	Page       int `json:"page"`
+	Limit      int `json:"limit"`
+	Total      int `json:"total"`
+	TotalPages int `json:"total_pages"`
+}
+
+type PingResponse struct {
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+	Timestamp int64  `json:"timestamp"`
 }

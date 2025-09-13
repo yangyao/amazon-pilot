@@ -2,6 +2,13 @@ Name: auth-api
 Host: 0.0.0.0
 Port: 8888
 
+# DevServer配置 - 开发模式下启用
+DevServer:
+  Enabled: true
+  Port: 8889
+  HealthPath: "/dev/health"
+  MetricsPath: "/dev/metrics"
+
 Database:
   dsn: postgresql://postgres:amazon123@localhost:5432/amazon_pilot
   maxIdleConns: 10

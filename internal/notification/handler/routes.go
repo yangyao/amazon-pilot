@@ -13,12 +13,41 @@ import (
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/from/:name",
-				Handler: NotificationHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RateLimitMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/health",
+					Handler: healthHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/ping",
+					Handler: pingHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/notification"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RateLimitMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/notifications",
+					Handler: getNotificationsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/notifications/:notification_id/read",
+					Handler: markNotificationReadHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+		rest.WithPrefix("/notification"),
 	)
 }

@@ -13,12 +13,51 @@ import (
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/from/:name",
-				Handler: OptimizationHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RateLimitMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/health",
+					Handler: healthHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/ping",
+					Handler: pingHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/optimization"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RateLimitMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/stats",
+					Handler: getOptimizationStatsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/tasks",
+					Handler: createOptimizationTaskHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/tasks",
+					Handler: listOptimizationTasksHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/tasks/:task_id",
+					Handler: getOptimizationTaskHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+		rest.WithPrefix("/optimization"),
 	)
 }

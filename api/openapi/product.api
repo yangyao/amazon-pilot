@@ -1,14 +1,163 @@
 syntax = "v1"
 
-type Request {
-	Name string `path:"name,options=you|me"`
-}
+info (
+	title:   "Amazon Monitor Product Tracking API"
+	desc:    "Product tracking and monitoring service for Amazon sellers"
+	author:  "Amazon Pilot Team"
+	email:   "team@amazon-pilot.com"
+	version: "v1"
+)
 
-type Response {
-	Message string `json:"message"`
-}
+type (
+	// Product tracking requests
+	AddTrackingRequest {
+		ASIN     string           `json:"asin"`
+		Alias    string           `json:"alias,optional"`
+		Category string           `json:"category,optional"`
+		Settings TrackingSettings `json:"tracking_settings,optional"`
+	}
+	TrackingSettings {
+		PriceChangeThreshold float64 `json:"price_change_threshold,default=10"`
+		BSRChangeThreshold   float64 `json:"bsr_change_threshold,default=30"`
+		UpdateFrequency      string  `json:"update_frequency,default=daily"`
+	}
+	AddTrackingResponse {
+		ProductID  string `json:"product_id"`
+		ASIN       string `json:"asin"`
+		Status     string `json:"status"`
+		NextUpdate string `json:"next_update"`
+	}
+	// Get tracked products
+	GetTrackedRequest {
+		Page     int    `form:"page,default=1"`
+		Limit    int    `form:"limit,default=20"`
+		Category string `form:"category,optional"`
+		Status   string `form:"status,optional"`
+	}
+	GetTrackedResponse {
+		Products   []TrackedProduct `json:"products"`
+		Pagination Pagination       `json:"pagination"`
+	}
+	TrackedProduct {
+		ID           string  `json:"id"`
+		ASIN         string  `json:"asin"`
+		Title        string  `json:"title,omitempty"`
+		Alias        string  `json:"alias,omitempty"`
+		CurrentPrice float64 `json:"current_price"`
+		Currency     string  `json:"currency"`
+		BSR          int     `json:"bsr,omitempty"`
+		Rating       float64 `json:"rating,omitempty"`
+		ReviewCount  int     `json:"review_count"`
+		BuyBoxPrice  float64 `json:"buy_box_price,omitempty"`
+		LastUpdated  string  `json:"last_updated"`
+		Status       string  `json:"status"`
+	}
+	Pagination {
+		Page       int `json:"page"`
+		Limit      int `json:"limit"`
+		Total      int `json:"total"`
+		TotalPages int `json:"total_pages"`
+	}
+	// Product details
+	GetProductRequest {
+		ProductID string `path:"product_id"`
+	}
+	GetProductResponse {
+		ID              string                 `json:"id"`
+		ASIN            string                 `json:"asin"`
+		Title           string                 `json:"title,omitempty"`
+		Description     string                 `json:"description,omitempty"`
+		Brand           string                 `json:"brand,omitempty"`
+		Category        string                 `json:"category,omitempty"`
+		CurrentPrice    float64                `json:"current_price"`
+		Currency        string                 `json:"currency"`
+		BSR             int                    `json:"bsr,omitempty"`
+		Rating          float64                `json:"rating,omitempty"`
+		ReviewCount     int                    `json:"review_count"`
+		Images          []string               `json:"images,omitempty"`
+		BulletPoints    []string               `json:"bullet_points,omitempty"`
+		TrackingHistory TrackingHistorySummary `json:"tracking_history"`
+		Alerts          []Alert                `json:"alerts,omitempty"`
+	}
+	TrackingHistorySummary {
+		PriceChanges  int `json:"price_changes"`
+		BSRChanges    int `json:"bsr_changes"`
+		RatingChanges int `json:"rating_changes"`
+	}
+	Alert {
+		Type      string `json:"type"`
+		Message   string `json:"message"`
+		CreatedAt string `json:"created_at"`
+	}
+	// Product history
+	GetHistoryRequest {
+		ProductID string `path:"product_id"`
+		Metric    string `form:"metric,optional"`
+		Period    string `form:"period,optional"`
+	}
+	GetHistoryResponse {
+		ProductID string        `json:"product_id"`
+		Metric    string        `json:"metric"`
+		Period    string        `json:"period"`
+		Data      []HistoryData `json:"data"`
+	}
+	HistoryData {
+		Date     string  `json:"date"`
+		Value    float64 `json:"value"`
+		Currency string  `json:"currency,omitempty"`
+	}
+	// Stop tracking
+	StopTrackingRequest {
+		ProductID string `path:"product_id"`
+	}
+	StopTrackingResponse {
+		Message string `json:"message"`
+	}
+	// Health check
+	PingResponse {
+		Status    string `json:"status"`
+		Message   string `json:"message"`
+		Timestamp int64  `json:"timestamp"`
+	}
+	HealthResponse {
+		Service string `json:"service"`
+		Status  string `json:"status"`
+		Version string `json:"version"`
+		Uptime  int64  `json:"uptime"`
+	}
+)
 
+@server (
+	middleware: RateLimitMiddleware
+)
 service product-api {
-	@handler ProductHandler
-	get /from/:name(Request) returns (Response)
+	// Health check endpoints (no auth required)
+	@handler ping
+	get /ping returns (PingResponse)
+
+	@handler health
+	get /health returns (HealthResponse)
 }
+
+@server (
+	jwt:        Auth
+	middleware: RateLimitMiddleware
+)
+service product-api {
+	// Product tracking endpoints (JWT required)
+	@handler addProductTracking
+	post /products/track (AddTrackingRequest) returns (AddTrackingResponse)
+
+	@handler getTrackedProducts
+	get /products/tracked (GetTrackedRequest) returns (GetTrackedResponse)
+
+	@handler getProductDetails
+	get /products/:product_id (GetProductRequest) returns (GetProductResponse)
+
+	@handler getProductHistory
+	get /products/:product_id/history (GetHistoryRequest) returns (GetHistoryResponse)
+
+	@handler stopProductTracking
+	delete /products/:product_id/track (StopTrackingRequest) returns (StopTrackingResponse)
+}
+

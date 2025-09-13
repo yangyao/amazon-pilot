@@ -17,42 +17,52 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Middleware{serverCtx.RateLimitMiddleware},
 			[]rest.Route{
 				{
+					Method:  http.MethodGet,
+					Path:    "/health",
+					Handler: healthHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodPost,
-					Path:    "/auth/login",
+					Path:    "/login",
 					Handler: loginHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/auth/register",
-					Handler: registerHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/health",
-					Handler: healthHandler(serverCtx),
+					Path:    "/logout",
+					Handler: logoutHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/ping",
 					Handler: pingHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/register",
+					Handler: registerHandler(serverCtx),
+				},
 			}...,
 		),
+		rest.WithPrefix("/auth"),
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/users/profile",
-				Handler: getProfileHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPut,
-				Path:    "/users/profile",
-				Handler: updateProfileHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.RateLimitMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodGet,
+					Path:    "/users/profile",
+					Handler: getProfileHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/users/profile",
+					Handler: updateProfileHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+		rest.WithPrefix("/auth"),
 	)
 }

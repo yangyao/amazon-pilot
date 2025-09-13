@@ -1,14 +1,163 @@
 syntax = "v1"
 
-type Request {
-	Name string `path:"name,options=you|me"`
-}
+info (
+	title:   "Amazon Monitor Competitor Analysis API"
+	desc:    "Competitor analysis and market intelligence service"
+	author:  "Amazon Pilot Team"
+	email:   "team@amazon-pilot.com"
+	version: "v1"
+)
 
-type Response {
-	Message string `json:"message"`
-}
+type (
+	// Create analysis group
+	CreateAnalysisRequest {
+		Name            string   `json:"name"`
+		Description     string   `json:"description,optional"`
+		MainProductID   string   `json:"main_product_id"`
+		UpdateFrequency string   `json:"update_frequency,default=daily"`
+		Metrics         []string `json:"analysis_metrics,optional"`
+	}
+	CreateAnalysisResponse {
+		ID            string `json:"id"`
+		Name          string `json:"name"`
+		MainProductID string `json:"main_product_id"`
+		Status        string `json:"status"`
+		CreatedAt     string `json:"created_at"`
+	}
+	// Get analysis results
+	GetAnalysisRequest {
+		AnalysisID string `path:"analysis_id"`
+	}
+	GetAnalysisResponse {
+		ID              string              `json:"id"`
+		Name            string              `json:"name"`
+		Description     string              `json:"description,omitempty"`
+		MainProduct     CompetitorProduct   `json:"main_product"`
+		Competitors     []CompetitorProduct `json:"competitors"`
+		Analysis        CompetitorAnalysis  `json:"analysis"`
+		Recommendations []Recommendation    `json:"recommendations"`
+		Status          string              `json:"status"`
+		LastUpdated     string              `json:"last_updated"`
+	}
+	CompetitorProduct {
+		ID          string  `json:"id"`
+		ASIN        string  `json:"asin"`
+		Title       string  `json:"title,omitempty"`
+		Brand       string  `json:"brand,omitempty"`
+		Price       float64 `json:"price"`
+		BSR         int     `json:"bsr,omitempty"`
+		Rating      float64 `json:"rating,omitempty"`
+		ReviewCount int     `json:"review_count"`
+		IsWinner    bool    `json:"is_winner,omitempty"`
+	}
+	CompetitorAnalysis {
+		PriceRange     PriceRange     `json:"price_range"`
+		BSRRange       BSRRange       `json:"bsr_range"`
+		RatingAnalysis RatingAnalysis `json:"rating_analysis"`
+		MarketInsights []string       `json:"market_insights"`
+	}
+	PriceRange {
+		Min     float64 `json:"min"`
+		Max     float64 `json:"max"`
+		Average float64 `json:"average"`
+		Median  float64 `json:"median"`
+	}
+	BSRRange {
+		Best    int     `json:"best"`
+		Worst   int     `json:"worst"`
+		Average float64 `json:"average"`
+	}
+	RatingAnalysis {
+		Average      float64 `json:"average"`
+		HighestRated string  `json:"highest_rated_asin"`
+		LowestRated  string  `json:"lowest_rated_asin"`
+		MostReviews  string  `json:"most_reviews_asin"`
+	}
+	Recommendation {
+		Type        string `json:"type"`
+		Priority    string `json:"priority"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Impact      string `json:"impact"`
+	}
+	// Add competitor
+	AddCompetitorRequest {
+		AnalysisID string `path:"analysis_id"`
+		ASIN       string `json:"asin"`
+	}
+	AddCompetitorResponse {
+		Message string `json:"message"`
+	}
+	// List analysis groups
+	ListAnalysisRequest {
+		Page   int    `form:"page,default=1"`
+		Limit  int    `form:"limit,default=20"`
+		Status string `form:"status,optional"`
+	}
+	ListAnalysisResponse {
+		Groups     []AnalysisGroup `json:"groups"`
+		Pagination Pagination      `json:"pagination"`
+	}
+	AnalysisGroup {
+		ID              string `json:"id"`
+		Name            string `json:"name"`
+		Description     string `json:"description,omitempty"`
+		MainProductASIN string `json:"main_product_asin"`
+		CompetitorCount int    `json:"competitor_count"`
+		Status          string `json:"status"`
+		LastAnalysis    string `json:"last_analysis,omitempty"`
+		CreatedAt       string `json:"created_at"`
+	}
+	Pagination {
+		Page       int `json:"page"`
+		Limit      int `json:"limit"`
+		Total      int `json:"total"`
+		TotalPages int `json:"total_pages"`
+	}
+	// Health check
+	PingResponse {
+		Status    string `json:"status"`
+		Message   string `json:"message"`
+		Timestamp int64  `json:"timestamp"`
+	}
+	HealthResponse {
+		Service string `json:"service"`
+		Status  string `json:"status"`
+		Version string `json:"version"`
+		Uptime  int64  `json:"uptime"`
+	}
+)
 
+@server (
+	prefix:     /competitor
+	middleware: RateLimitMiddleware
+)
 service competitor-api {
-	@handler CompetitorHandler
-	get /from/:name(Request) returns (Response)
+	// Health check endpoints (no auth required)
+	@handler ping
+	get /ping returns (PingResponse)
+
+	@handler health
+	get /health returns (HealthResponse)
 }
+
+@server (
+	prefix:     /competitor
+	jwt:        Auth
+	middleware: RateLimitMiddleware
+)
+service competitor-api {
+	// Competitor analysis endpoints (JWT required)
+	@handler createAnalysisGroup
+	post /analysis (CreateAnalysisRequest) returns (CreateAnalysisResponse)
+
+	@handler getAnalysisResults
+	get /analysis/:analysis_id (GetAnalysisRequest) returns (GetAnalysisResponse)
+
+	@handler addCompetitor
+	post /analysis/:analysis_id/competitors (AddCompetitorRequest) returns (AddCompetitorResponse)
+
+	@handler listAnalysisGroups
+	get /analysis (ListAnalysisRequest) returns (ListAnalysisResponse)
+}
+

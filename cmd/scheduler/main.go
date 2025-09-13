@@ -1,93 +1,95 @@
 package main
 
 import (
+	"flag"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/hibiken/asynq"
-	"github.com/zeromicro/go-zero/core/logx"
+	"amazonpilot/internal/pkg/database"
+	"amazonpilot/internal/pkg/logger"
+	"amazonpilot/internal/pkg/queue"
+	"amazonpilot/internal/pkg/scheduler"
+
+	"github.com/zeromicro/go-zero/core/conf"
 )
 
+var configFile = flag.String("f", "cmd/scheduler/etc/scheduler.yaml", "the config file")
+
+type Config struct {
+	Database struct {
+		Host     string `yaml:"Host"`
+		Port     int    `yaml:"Port"`
+		User     string `yaml:"User"`
+		Password string `yaml:"Password"`
+		DBName   string `yaml:"DBName"`
+		SSLMode  string `yaml:"SSLMode"`
+	} `yaml:"Database"`
+	Redis struct {
+		Addr     string `yaml:"Addr"`
+		Password string `yaml:"Password"`
+		DB       int    `yaml:"DB"`
+	} `yaml:"Redis"`
+	Scheduler struct {
+		CheckInterval string `yaml:"CheckInterval"`
+		LogLevel      string `yaml:"LogLevel"`
+	} `yaml:"Scheduler"`
+}
+
 func main() {
-	// 初始化日志
-	logx.MustSetup(logx.LogConf{
-		ServiceName: "asynq-scheduler",
-		Mode:        "file",
-		Path:        "/var/log/amazon-pilot",
-		Level:       "info",
-	})
+	flag.Parse()
 
-	// 获取 Redis 地址
-	redisAddr := os.Getenv("REDIS_URL")
-	if redisAddr == "" {
-		redisAddr = "redis://localhost:6379"
-	}
+	// 初始化结构化日志
+	logger.InitStructuredLogger()
 
-	// 创建调度器
-	scheduler := asynq.NewScheduler(
-		asynq.RedisClientOpt{Addr: redisAddr},
-		nil,
+	var c Config
+	conf.MustLoad(*configFile, &c)
+
+	slog.Info("Starting Amazon Pilot Scheduler",
+		"config_file", *configFile,
+		"check_interval", c.Scheduler.CheckInterval,
 	)
 
-	// 注册定时任务
-	registerPeriodicTasks(scheduler)
+	// 初始化数据库连接
+	db, err := database.NewConnection(database.Config{
+		Host:     c.Database.Host,
+		Port:     c.Database.Port,
+		User:     c.Database.User,
+		Password: c.Database.Password,
+		DBName:   c.Database.DBName,
+		SSLMode:  c.Database.SSLMode,
+	})
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	// 初始化队列管理器
+	queueMgr := queue.NewQueueManager(c.Redis.Addr)
+
+	// 初始化调度器服务
+	schedulerService := scheduler.NewSchedulerService(db, queueMgr)
+
+	// 设置信号处理
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// 启动调度器
-	logx.Info("Starting Asynq scheduler...")
+	if err := schedulerService.Start(); err != nil {
+		log.Fatalf("Failed to start scheduler: %v", err)
+	}
+
+	slog.Info("Scheduler started successfully")
+
+	// 等待信号
+	sig := <-sigChan
+	slog.Info("Received signal, shutting down scheduler",
+		"signal", sig.String(),
+	)
 
 	// 优雅关闭
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-c
-		logx.Info("Shutting down scheduler...")
-		scheduler.Shutdown()
-	}()
-
-	if err := scheduler.Run(); err != nil {
-		log.Fatalf("Could not start scheduler: %v", err)
-	}
+	schedulerService.Stop()
+	slog.Info("Scheduler shutdown complete")
 }
 
-func registerPeriodicTasks(scheduler *asynq.Scheduler) {
-	// 每日上午 9 点执行产品更新
-	_, err := scheduler.Register("@daily 09:00", asynq.NewTask("schedule_daily_updates", nil))
-	if err != nil {
-		logx.Errorf("Failed to register daily update task: %v", err)
-	}
-
-	// 每 6 小时执行高频率产品更新
-	_, err = scheduler.Register("0 */6 * * *", asynq.NewTask("schedule_high_frequency_updates", nil))
-	if err != nil {
-		logx.Errorf("Failed to register high frequency update task: %v", err)
-	}
-
-	// 每小時執行高頻產品更新
-	_, err = scheduler.Register("@hourly", asynq.NewTask("schedule_hourly_updates", nil))
-	if err != nil {
-		logx.Errorf("Failed to register hourly update task: %v", err)
-	}
-
-	// 週日凌晨 2 點執行競品分析
-	_, err = scheduler.Register("0 2 * * 0", asynq.NewTask("schedule_weekly_analysis", nil))
-	if err != nil {
-		logx.Errorf("Failed to register weekly analysis task: %v", err)
-	}
-
-	// 每日凌晨 3 點執行資料清理
-	_, err = scheduler.Register("0 3 * * *", asynq.NewTask("schedule_daily_cleanup", nil))
-	if err != nil {
-		logx.Errorf("Failed to register daily cleanup task: %v", err)
-	}
-
-	// 每週日凌晨 1 點執行優化分析
-	_, err = scheduler.Register("0 1 * * 0", asynq.NewTask("schedule_weekly_optimization", nil))
-	if err != nil {
-		logx.Errorf("Failed to register weekly optimization task: %v", err)
-	}
-
-	logx.Info("All periodic tasks registered successfully")
-}

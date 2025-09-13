@@ -3,10 +3,130 @@
 
 package types
 
-type Request struct {
-	Name string `path:"name,options=you|me"`
+type AddTrackingRequest struct {
+	ASIN     string           `json:"asin"`
+	Alias    string           `json:"alias,optional"`
+	Category string           `json:"category,optional"`
+	Settings TrackingSettings `json:"tracking_settings,optional"`
 }
 
-type Response struct {
+type AddTrackingResponse struct {
+	ProductID  string `json:"product_id"`
+	ASIN       string `json:"asin"`
+	Status     string `json:"status"`
+	NextUpdate string `json:"next_update"`
+}
+
+type Alert struct {
+	Type      string `json:"type"`
+	Message   string `json:"message"`
+	CreatedAt string `json:"created_at"`
+}
+
+type GetHistoryRequest struct {
+	ProductID string `path:"product_id"`
+	Metric    string `form:"metric,optional"`
+	Period    string `form:"period,optional"`
+}
+
+type GetHistoryResponse struct {
+	ProductID string        `json:"product_id"`
+	Metric    string        `json:"metric"`
+	Period    string        `json:"period"`
+	Data      []HistoryData `json:"data"`
+}
+
+type GetProductRequest struct {
+	ProductID string `path:"product_id"`
+}
+
+type GetProductResponse struct {
+	ID              string                 `json:"id"`
+	ASIN            string                 `json:"asin"`
+	Title           string                 `json:"title,omitempty"`
+	Description     string                 `json:"description,omitempty"`
+	Brand           string                 `json:"brand,omitempty"`
+	Category        string                 `json:"category,omitempty"`
+	CurrentPrice    float64                `json:"current_price"`
+	Currency        string                 `json:"currency"`
+	BSR             int                    `json:"bsr,omitempty"`
+	Rating          float64                `json:"rating,omitempty"`
+	ReviewCount     int                    `json:"review_count"`
+	Images          []string               `json:"images,omitempty"`
+	BulletPoints    []string               `json:"bullet_points,omitempty"`
+	TrackingHistory TrackingHistorySummary `json:"tracking_history"`
+	Alerts          []Alert                `json:"alerts,omitempty"`
+}
+
+type GetTrackedRequest struct {
+	Page     int    `form:"page,default=1"`
+	Limit    int    `form:"limit,default=20"`
+	Category string `form:"category,optional"`
+	Status   string `form:"status,optional"`
+}
+
+type GetTrackedResponse struct {
+	Products   []TrackedProduct `json:"products"`
+	Pagination Pagination       `json:"pagination"`
+}
+
+type HealthResponse struct {
+	Service string `json:"service"`
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Uptime  int64  `json:"uptime"`
+}
+
+type HistoryData struct {
+	Date     string  `json:"date"`
+	Value    float64 `json:"value"`
+	Currency string  `json:"currency,omitempty"`
+}
+
+type Pagination struct {
+	Page       int `json:"page"`
+	Limit      int `json:"limit"`
+	Total      int `json:"total"`
+	TotalPages int `json:"total_pages"`
+}
+
+type PingResponse struct {
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+type StopTrackingRequest struct {
+	ProductID string `path:"product_id"`
+}
+
+type StopTrackingResponse struct {
 	Message string `json:"message"`
+}
+
+type TrackedProduct struct {
+	ID           string  `json:"id"`
+	ASIN         string  `json:"asin"`
+	Title        string  `json:"title,omitempty"`
+	Alias        string  `json:"alias,omitempty"`
+	CurrentPrice float64 `json:"current_price"`
+	Currency     string  `json:"currency"`
+	BSR          int     `json:"bsr,omitempty"`
+	Rating       float64 `json:"rating,omitempty"`
+	ReviewCount  int     `json:"review_count"`
+	BuyBoxPrice  float64 `json:"buy_box_price,omitempty"`
+	LastUpdated  string  `json:"last_updated"`
+	Status       string  `json:"status"`
+}
+
+type TrackingHistorySummary struct {
+	PriceChanges  int `json:"price_changes"`
+	BSRChanges    int `json:"bsr_changes"`
+	RatingChanges int `json:"rating_changes"`
+}
+
+type TrackingSettings struct {
+	PriceChangeThreshold float64 `json:"price_change_threshold,default=10"`
+	BSRChangeThreshold   float64 `json:"bsr_change_threshold,default=30"`
+	UpdateFrequency      string  `json:"update_frequency,default=daily"`
 }

@@ -1,0 +1,10 @@
+Name: api-gateway
+Host: 0.0.0.0
+Port: 8080
+
+Services:
+  auth: "http://localhost:8888"
+  product: "http://localhost:8889"
+  competitor: "http://localhost:8890"
+  optimization: "http://localhost:8891"
+  notification: "http://localhost:8892"

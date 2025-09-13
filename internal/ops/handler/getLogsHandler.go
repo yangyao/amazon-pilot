@@ -3,22 +3,22 @@ package handler
 import (
 	"net/http"
 
-	"amazonpilot/internal/competitor/logic"
-	"amazonpilot/internal/competitor/svc"
-	"amazonpilot/internal/competitor/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
+	"amazonpilot/internal/ops/logic"
+	"amazonpilot/internal/ops/svc"
+	"amazonpilot/internal/ops/types"
 )
 
-func CompetitorHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func getLogsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.Request
+		var req types.GetLogsRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := logic.NewCompetitorLogic(r.Context(), svcCtx)
-		resp, err := l.Competitor(&req)
+		l := logic.NewGetLogsLogic(r.Context(), svcCtx)
+		resp, err := l.GetLogs(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

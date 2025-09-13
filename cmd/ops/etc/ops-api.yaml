@@ -1,0 +1,26 @@
+Name: ops-api
+Host: 0.0.0.0
+Port: 8893
+
+# DevServer配置 - 开发模式下启用
+DevServer:
+  Enabled: true
+  Port: 8894
+  HealthPath: "/dev/health"
+  MetricsPath: "/dev/metrics"
+
+Database:
+  dsn: postgresql://postgres:amazon123@localhost:5432/amazon_pilot
+  maxIdleConns: 10
+  maxOpenConns: 100
+  connMaxLifetime: 3600
+
+Redis:
+  host: localhost
+  port: 6379
+  db: 0
+
+Auth:
+  jwtSecret: "amazon-pilot-jwt-secret-2025"
+  accessExpire: 86400
+  accessSecret: "amazon-pilot-jwt-secret-2025"

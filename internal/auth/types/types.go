@@ -22,6 +22,10 @@ type LoginResponse struct {
 	User        User   `json:"user"`
 }
 
+type LogoutResponse struct {
+	Message string `json:"message"`
+}
+
 type NotificationSettings struct {
 	Email bool `json:"email"`
 	Push  bool `json:"push"`
