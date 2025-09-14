@@ -64,7 +64,7 @@ Settings → Secrets and variables → Actions → New repository secret
 | `SERVER_USER` | `deploy` | 部署用户名 |
 | `SERVER_SSH_KEY` | `私钥内容` | 从服务器复制的私钥 |
 | `SERVER_PORT` | `22` | SSH端口（可选，默认22） |
-| `DATABASE_PASSWORD` | `your-db-password` | PostgreSQL数据库密码 |
+| `DATABASE_DSN` | `postgresql://user:pass@host:5432/db` | 完整数据库连接字符串（支持Supabase） |
 | `REDIS_PASSWORD` | `your-redis-password` | Redis密码 |
 | `JWT_SECRET` | `your-32-char-secret` | JWT签名密钥（至少32字符） |
 | `APIFY_API_TOKEN` | `your-apify-token` | Apify API Token |

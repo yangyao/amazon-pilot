@@ -123,3 +123,15 @@ temp/
 
 # Go vendor (if using)
 vendor/
+
+# Security keys and secrets
+deployments/keys/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Production environment files
+.env.production
+deployments/compose/.env.production

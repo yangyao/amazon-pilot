@@ -31,7 +31,7 @@ echo "📝 请输入以下配置信息:"
 echo ""
 
 # 收集配置信息
-read -p "数据库密码 (postgres): " -s DATABASE_PASSWORD
+read -p "数据库DSN (如Supabase连接字符串): " DATABASE_DSN
 echo ""
 read -p "Redis密码: " -s REDIS_PASSWORD
 echo ""
@@ -45,8 +45,8 @@ read -p "Grafana管理员密码: " -s GRAFANA_PASSWORD
 echo ""
 
 # 验证必需字段
-if [ -z "$DATABASE_PASSWORD" ] || [ -z "$JWT_SECRET" ]; then
-    echo "❌ 数据库密码和JWT密钥是必需的"
+if [ -z "$DATABASE_DSN" ] || [ -z "$JWT_SECRET" ]; then
+    echo "❌ 数据库DSN和JWT密钥是必需的"
     exit 1
 fi
 
@@ -64,9 +64,9 @@ cat > "$ENV_FILE" << EOF
 # ⚠️ 此文件包含敏感信息，请勿提交到版本控制
 
 # ===========================================
-# 数据库配置
+# 数据库配置 (支持Supabase等外部数据库)
 # ===========================================
-DATABASE_DSN=postgresql://postgres:${DATABASE_PASSWORD}@amazon-pilot-postgres:5432/amazon_pilot
+DATABASE_DSN=${DATABASE_DSN}
 DATABASE_MAX_IDLE_CONNS=10
 DATABASE_MAX_OPEN_CONNS=100
 DATABASE_CONN_MAX_LIFETIME=3600
