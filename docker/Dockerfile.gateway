@@ -35,8 +35,6 @@ RUN adduser -D -s /bin/sh appuser
 COPY --from=builder /app/gateway-service /app/gateway-service
 COPY --from=builder /app/cmd/gateway/etc /app/etc
 
-# 复制环境配置文件 (敏感信息)
-COPY .env /app/.env
 
 # 设定权限
 RUN chown -R appuser:appuser /app

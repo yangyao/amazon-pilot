@@ -115,10 +115,9 @@ jobs:
         key: ${{ secrets.SERVER_SSH_KEY }}
         port: ${{ secrets.SERVER_PORT || 22 }}
         timeout: 300s
-        envs: DATABASE_DSN,REDIS_PASSWORD,JWT_SECRET,APIFY_API_TOKEN,OPENAI_API_KEY,GRAFANA_PASSWORD
+        envs: DATABASE_DSN,JWT_SECRET,APIFY_API_TOKEN,OPENAI_API_KEY,GRAFANA_PASSWORD
       env:
         DATABASE_DSN: ${{ secrets.DATABASE_DSN }}
-        REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
         APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -143,11 +142,10 @@ jobs:
           DATABASE_MAX_OPEN_CONNS=100
           DATABASE_CONN_MAX_LIFETIME=3600
 
-          # Redis配置
+          # Redis配置 (无密码)
           REDIS_HOST=amazon-pilot-redis
           REDIS_PORT=6379
           REDIS_DB=0
-          REDIS_PASSWORD=${REDIS_PASSWORD}
 
           # API Keys
           APIFY_API_TOKEN=${APIFY_API_TOKEN}
