@@ -1,4 +1,4 @@
-name: Amazon Pilot - Production Deploy
+name: Amazon Pilot - Production Deploy (Clean)
 
 on:
   push:
@@ -6,143 +6,140 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: 'Service to deploy (all/auth/product/competitor/optimization/frontend/worker/scheduler/dashboard/gateway)'
+        description: 'Service to deploy'
         required: false
         default: 'all'
 
 env:
   DEPLOY_DIR: /opt/amazon-pilot
-  COMPOSE_FILE: deployments/compose/docker-compose.yml
-  ENV_FILE: deployments/compose/.env.production
 
 jobs:
   # 并发构建所有服务
   build-auth:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build Auth Service
-        run: |
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          docker build -f docker/Dockerfile.auth -t amazon-pilot-auth:latest .
-          docker save amazon-pilot-auth:latest | gzip > auth-image.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: auth-image
-          path: auth-image.tar.gz
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Auth Service
+      run: |
+        docker build -f docker/Dockerfile.auth -t amazon-pilot-auth:latest .
+        docker save amazon-pilot-auth:latest | gzip > auth-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: auth-image
+        path: auth-image.tar.gz
 
   build-product:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build Product Service
-        run: |
-          docker build -f docker/Dockerfile.product -t amazon-pilot-product:latest .
-          docker save amazon-pilot-product:latest | gzip > product-image.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: product-image
-          path: product-image.tar.gz
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Product Service
+      run: |
+        docker build -f docker/Dockerfile.product -t amazon-pilot-product:latest .
+        docker save amazon-pilot-product:latest | gzip > product-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: product-image
+        path: product-image.tar.gz
 
   build-competitor:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build Competitor Service
-        run: |
-          docker build -f docker/Dockerfile.competitor -t amazon-pilot-competitor:latest .
-          docker save amazon-pilot-competitor:latest | gzip > competitor-image.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: competitor-image
-          path: competitor-image.tar.gz
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Competitor Service
+      run: |
+        docker build -f docker/Dockerfile.competitor -t amazon-pilot-competitor:latest .
+        docker save amazon-pilot-competitor:latest | gzip > competitor-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: competitor-image
+        path: competitor-image.tar.gz
 
   build-optimization:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build Optimization Service
-        run: |
-          docker build -f docker/Dockerfile.optimization -t amazon-pilot-optimization:latest .
-          docker save amazon-pilot-optimization:latest | gzip > optimization-image.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: optimization-image
-          path: optimization-image.tar.gz
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Optimization Service
+      run: |
+        docker build -f docker/Dockerfile.optimization -t amazon-pilot-optimization:latest .
+        docker save amazon-pilot-optimization:latest | gzip > optimization-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: optimization-image
+        path: optimization-image.tar.gz
 
   build-frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build Frontend Service
-        run: |
-          docker build -f docker/Dockerfile.frontend -t amazon-pilot-frontend:latest .
-          docker save amazon-pilot-frontend:latest | gzip > frontend-image.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: frontend-image
-          path: frontend-image.tar.gz
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Frontend Service
+      run: |
+        docker build -f docker/Dockerfile.frontend -t amazon-pilot-frontend:latest .
+        docker save amazon-pilot-frontend:latest | gzip > frontend-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: frontend-image
+        path: frontend-image.tar.gz
 
   build-gateway:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build Gateway Service
-        run: |
-          docker build -f docker/Dockerfile.gateway -t amazon-pilot-gateway:latest .
-          docker save amazon-pilot-gateway:latest | gzip > gateway-image.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: gateway-image
-          path: gateway-image.tar.gz
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Gateway Service
+      run: |
+        docker build -f docker/Dockerfile.gateway -t amazon-pilot-gateway:latest .
+        docker save amazon-pilot-gateway:latest | gzip > gateway-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: gateway-image
+        path: gateway-image.tar.gz
 
   build-worker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build Worker Service
-        run: |
-          docker build -f docker/Dockerfile.worker -t amazon-pilot-worker:latest .
-          docker save amazon-pilot-worker:latest | gzip > worker-image.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: worker-image
-          path: worker-image.tar.gz
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Worker Service
+      run: |
+        docker build -f docker/Dockerfile.worker -t amazon-pilot-worker:latest .
+        docker save amazon-pilot-worker:latest | gzip > worker-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: worker-image
+        path: worker-image.tar.gz
 
   build-scheduler:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build Scheduler Service
-        run: |
-          docker build -f docker/Dockerfile.scheduler -t amazon-pilot-scheduler:latest .
-          docker save amazon-pilot-scheduler:latest | gzip > scheduler-image.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: scheduler-image
-          path: scheduler-image.tar.gz
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Scheduler Service
+      run: |
+        docker build -f docker/Dockerfile.scheduler -t amazon-pilot-scheduler:latest .
+        docker save amazon-pilot-scheduler:latest | gzip > scheduler-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: scheduler-image
+        path: scheduler-image.tar.gz
 
   build-dashboard:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build Dashboard Service
-        run: |
-          docker build -f docker/Dockerfile.dashboard -t amazon-pilot-dashboard:latest .
-          docker save amazon-pilot-dashboard:latest | gzip > dashboard-image.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dashboard-image
-          path: dashboard-image.tar.gz
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Dashboard Service
+      run: |
+        docker build -f docker/Dockerfile.dashboard -t amazon-pilot-dashboard:latest .
+        docker save amazon-pilot-dashboard:latest | gzip > dashboard-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: dashboard-image
+        path: dashboard-image.tar.gz
 
   deploy:
     needs: [build-auth, build-product, build-competitor, build-optimization, build-frontend, build-gateway, build-worker, build-scheduler, build-dashboard]
@@ -150,196 +147,37 @@ jobs:
     environment: production
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+    - name: Upload Docker images to server
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        source: "."
+        target: "/tmp/amazon-pilot-deploy/"
 
-      - name: Upload Docker images to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "."
-          target: "/tmp/amazon-pilot-deploy/"
-          strip_components: 0
-
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 600s
-          envs: DATABASE_DSN,JWT_SECRET,APIFY_API_TOKEN,OPENAI_API_KEY,GRAFANA_PASSWORD
-        env:
-          DATABASE_DSN: ${{ secrets.DATABASE_DSN }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
-          script: |
-            # 简化脚本测试SSH执行
-            echo "TEST: GitHub CI SSH script is executing"
-            date > /tmp/github-ci-test.log
-            echo "Current directory: $(pwd)" >> /tmp/github-ci-test.log
-            echo "Environment variables:" >> /tmp/github-ci-test.log
-            env | grep -E "(DATABASE_DSN|JWT_SECRET)" >> /tmp/github-ci-test.log
-
-            # 进入部署目录
-            cd ${{ env.DEPLOY_DIR }}
-            echo "Changed to: $(pwd)" >> /tmp/github-ci-test.log
-            
-            # 生成生产环境配置
-            echo "📝 Generating production environment file..."
-            cat > ${{ env.ENV_FILE }} << EOF
-            # Amazon Pilot 生产环境配置 - 自动生成
-            # 生成时间: $(date)
-            
-            # 数据库配置 (支持Supabase等外部数据库)
-            DATABASE_DSN=${DATABASE_DSN}
-            DATABASE_MAX_IDLE_CONNS=10
-            DATABASE_MAX_OPEN_CONNS=100
-            DATABASE_CONN_MAX_LIFETIME=3600
-            
-            # Redis配置 (无密码)
-            REDIS_HOST=amazon-pilot-redis
-            REDIS_PORT=6379
-            REDIS_DB=0
-            
-            # API Keys
-            APIFY_API_TOKEN=${APIFY_API_TOKEN}
-            OPENAI_API_KEY=${OPENAI_API_KEY}
-            
-            # JWT配置
-            JWT_SECRET=${JWT_SECRET}
-            JWT_ACCESS_SECRET=${JWT_SECRET}
-            JWT_ACCESS_EXPIRE=86400
-            
-            # Worker配置
-            WORKER_CONCURRENCY=10
-            WORKER_LOG_LEVEL=info
-
-            # Scheduler配置
-            SCHEDULER_PRODUCT_UPDATE_INTERVAL=5m
-            
-            # 监控配置
-            GRAFANA_PASSWORD=${GRAFANA_PASSWORD}
-            
-            # 应用配置
-            APP_ENV=production
-            LOG_LEVEL=info
-            ENVIRONMENT=production
-            EOF
-            
-            # 设置文件权限
-            chmod 600 ${{ env.ENV_FILE }}
-            
-            # 调试信息
-            echo "🔍 Current directory: $(pwd)"
-            echo "📋 Available files: $(ls -la)"
-            echo "🐳 Docker version: $(docker --version)"
-            
-            # 备份当前环境（如果存在）
-            if [ -f "${{ env.COMPOSE_FILE }}" ]; then
-              cp ${{ env.COMPOSE_FILE }} docker-compose.yml.backup.$(date +%Y%m%d_%H%M%S)
-            fi
-            
-            echo "📦 Loading Docker images..."
-            # 检查上传的镜像文件
-            echo "🔍 检查上传的镜像文件:"
-            find /tmp/amazon-pilot-deploy -name "*.tar.gz" | head -10
-
-            # 加载所有镜像文件
-            IMAGE_COUNT=0
-            for image_file in $(find /tmp/amazon-pilot-deploy -name "*.tar.gz"); do
-              if [ -f "$image_file" ]; then
-                echo "📦 Loading $image_file..."
-                if gunzip -c "$image_file" | docker load; then
-                  echo "✅ Successfully loaded $image_file"
-                  IMAGE_COUNT=$((IMAGE_COUNT + 1))
-                else
-                  echo "❌ Failed to load $image_file"
-                fi
-              fi
-            done
-
-            echo "📊 Total images loaded: $IMAGE_COUNT"
-
-            # 验证镜像加载成功
-            if [ "$IMAGE_COUNT" -lt 9 ]; then
-              echo "❌ Expected 9 images, only loaded $IMAGE_COUNT"
-              exit 1
-            fi
-
-            echo "🔍 验证加载的镜像:"
-            docker images amazon-pilot-auth | head -2
-            docker images amazon-pilot-frontend | head -2
-            
-            echo "🔄 Performing rolling update..."
-            echo "📄 Using compose file: ${{ env.COMPOSE_FILE }}"
-            echo "📄 Using env file: ${{ env.ENV_FILE }}"
-
-            # 验证文件存在
-            if [ ! -f "${{ env.COMPOSE_FILE }}" ]; then
-              echo "❌ Compose file not found: ${{ env.COMPOSE_FILE }}"
-              exit 1
-            fi
-
-            if [ ! -f "${{ env.ENV_FILE }}" ]; then
-              echo "❌ Env file not found: ${{ env.ENV_FILE }}"
-              exit 1
-            fi
-
-            # 停止现有服务
-            echo "🛑 Stopping existing services..."
-            docker-compose -f ${{ env.COMPOSE_FILE }} down || echo "No existing services to stop"
-
-            # 启动所有服务（强制重新创建）
-            echo "🚀 Starting all services with new images..."
-            if docker-compose -f ${{ env.COMPOSE_FILE }} --env-file ${{ env.ENV_FILE }} up -d --force-recreate --remove-orphans; then
-              echo "✅ Services started successfully"
-            else
-              echo "❌ Failed to start services"
-              docker-compose -f ${{ env.COMPOSE_FILE }} logs --tail=20
-              exit 1
-            fi
-
-            echo "📊 Verifying services are running:"
-            docker-compose -f ${{ env.COMPOSE_FILE }} ps
-            
-            echo "⏳ Waiting for services to be ready..."
-            sleep 60
-            
-            echo "🏥 Health check..."
-            # 健康检查
-            curl -f http://localhost:8080/health || {
-              echo "❌ Health check failed!"
-              docker-compose -f ${{ env.COMPOSE_FILE }} logs --tail=20
-              exit 1
-            }
-            
-            echo "🧹 Cleanup..."
-            # 清理上传的镜像文件
-            echo "🗑️  清理临时文件..."
-            rm -rf /tmp/amazon-pilot-deploy
-            echo "🐳 清理无用的Docker资源..."
-            docker system prune -f
-            
-            echo "✅ Deployment completed successfully!"
-            echo "🌐 Service available at: https://amazon-pilot.phpman.top"
-            echo "📋 Complete deployment log saved to: $LOGFILE"
-            echo "🔍 To view full log: cat $LOGFILE"
-
-            # 保存日志文件到永久位置
-            cp "$LOGFILE" /opt/amazon-pilot/logs/github-ci-$(date +%Y%m%d_%H%M%S).log
-
-            echo "=========================================="
-            echo "🕐 End time: $(date)"
-            echo "✅ GitHub CI Deployment Complete"
-            echo "=========================================="
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        timeout: 600s
+        envs: DEPLOY_DIR,DATABASE_DSN,JWT_SECRET,APIFY_API_TOKEN,OPENAI_API_KEY,GRAFANA_PASSWORD
+      env:
+        DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
+        DATABASE_DSN: ${{ secrets.DATABASE_DSN }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
+        script: |
+          echo "🚀 Executing server deployment script..."
+          cd /opt/amazon-pilot
+          ./server-deploy.sh
 
   notify:
     needs: [deploy]
@@ -347,12 +185,12 @@ jobs:
     if: always()
 
     steps:
-      - name: Notify deployment status
-        run: |
-          if [[ "${{ needs.deploy.result }}" == "success" ]]; then
-            echo "✅ Amazon Pilot deployment successful!"
-            echo "🌐 Available at: https://amazon-pilot.phpman.top"
-          else
-            echo "❌ Amazon Pilot deployment failed!"
-            echo "🔍 Check logs for details"
-          fi
+    - name: Notify deployment status
+      run: |
+        if [[ "${{ needs.deploy.result }}" == "success" ]]; then
+          echo "✅ Amazon Pilot deployment successful!"
+          echo "🌐 Available at: https://amazon-pilot.phpman.top"
+        else
+          echo "❌ Amazon Pilot deployment failed!"
+          echo "🔍 Check logs for details"
+        fi
