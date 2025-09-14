@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 	"regexp"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
 
+	"github.com/hibiken/asynq"
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
 )
@@ -85,7 +87,7 @@ func (l *AddProductTrackingLogic) AddProductTracking(req *types.AddTrackingReque
 		UserID:                userIDStr,
 		ProductID:             product.ID,
 		IsActive:              true,
-		TrackingFrequency:     trackingSettings.UpdateFrequency,
+		TrackingFrequency:     "daily", // Fixed at daily per questions.md
 		PriceChangeThreshold:  trackingSettings.PriceChangeThreshold,
 		BSRChangeThreshold:    trackingSettings.BSRChangeThreshold,
 	}
@@ -95,7 +97,7 @@ func (l *AddProductTrackingLogic) AddProductTracking(req *types.AddTrackingReque
 	}
 
 	// 计算下次检查时间
-	nextCheck := calculateNextCheckTime(trackingSettings.UpdateFrequency)
+	nextCheck := calculateNextCheckTime("daily") // Fixed at daily per questions.md
 	trackedProduct.NextCheckAt = &nextCheck
 
 	if err = l.svcCtx.DB.Create(&trackedProduct).Error; err != nil {
@@ -110,14 +112,38 @@ func (l *AddProductTrackingLogic) AddProductTracking(req *types.AddTrackingReque
 		NextUpdate: nextCheck.Format(time.RFC3339),
 	}
 
+	// 🚀 添加产品后立即发送队列任务获取初始数据
+	taskPayload := map[string]interface{}{
+		"product_id":    product.ID,
+		"tracked_id":    trackedProduct.ID,
+		"asin":          product.ASIN,
+		"user_id":       userIDStr,
+		"requested_at":  time.Now().Format(time.RFC3339),
+		"initial_fetch": true, // 标记为初始数据获取
+	}
+
+	payloadBytes, err := json.Marshal(taskPayload)
+	if err != nil {
+		l.Errorf("Failed to marshal initial fetch task payload: %v", err)
+	} else {
+		// 发送初始数据获取任务
+		task := asynq.NewTask("refresh_product_data", payloadBytes)
+		if info, err := l.svcCtx.AsynqClient.Enqueue(task); err != nil {
+			l.Errorf("Failed to enqueue initial data fetch task: %v", err)
+		} else {
+			l.Infof("Enqueued initial data fetch for new product %s, task ID: %s", product.ASIN, info.ID)
+		}
+	}
+
 	// 使用结构化日志记录业务操作
 	serviceLogger := logger.NewServiceLogger("product")
-	serviceLogger.LogBusinessOperation(l.ctx, "add_tracking", "product", product.ID, "success", 
+	serviceLogger.LogBusinessOperation(l.ctx, "add_tracking", "product", product.ID, "success",
 		"asin", req.ASIN,
 		"alias", req.Alias,
-		"frequency", trackingSettings.UpdateFrequency,
+		"frequency", "daily", // Fixed at daily per questions.md
+		"initial_fetch_queued", err == nil,
 	)
-	
+
 	return resp, nil
 }
 

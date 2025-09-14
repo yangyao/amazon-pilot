@@ -6,6 +6,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"amazonpilot/internal/optimization/logic"
 	"amazonpilot/internal/optimization/svc"
+	"amazonpilot/internal/pkg/utils"
 )
 
 func getOptimizationStatsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
@@ -13,7 +14,7 @@ func getOptimizationStatsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewGetOptimizationStatsLogic(r.Context(), svcCtx)
 		resp, err := l.GetOptimizationStats()
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			utils.HandleError(w, err)
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

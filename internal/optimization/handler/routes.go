@@ -28,7 +28,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 			}...,
 		),
-		rest.WithPrefix("/optimization"),
+		rest.WithPrefix("/api/optimization"),
 	)
 
 	server.AddRoutes(
@@ -58,6 +58,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
-		rest.WithPrefix("/optimization"),
+		rest.WithPrefix("/api/optimization"),
 	)
 }

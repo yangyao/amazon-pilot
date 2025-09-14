@@ -218,6 +218,9 @@ generate_code() {
     local temp_basename=$(basename "$temp_dir")
     fix_imports "$target_dir" "$temp_basename"
     
+    # 修复生成的handler错误处理
+    fix_error_handling "$target_dir"
+    
     # 清理临时目录
     rm -rf "$temp_dir"
     
@@ -247,6 +250,45 @@ fix_imports() {
         rm -f "$file.bak"
         print_info "✅ 修复: $file"
     done
+}
+
+# 修复生成的handler错误处理
+fix_error_handling() {
+    local target_dir="$1"
+    local handler_dir="$target_dir/handler"
+    
+    if [[ ! -d "$handler_dir" ]]; then
+        print_warning "Handler目录不存在: $handler_dir"
+        return
+    fi
+    
+    print_info "🔧 修复handler错误处理..."
+    
+    # 查找所有handler文件
+    find "$handler_dir" -name "*Handler.go" -type f | while read -r file; do
+        # 检查文件是否包含httpx.ErrorCtx
+        if grep -q "httpx.ErrorCtx" "$file"; then
+            print_info "🛠️  修复: $file"
+            
+            # 添加utils导入
+            if ! grep -q "amazonpilot/internal/pkg/utils" "$file"; then
+                sed -i.bak '/^import (/,/^)/ {
+                    /^)/ i\
+	"amazonpilot/internal/pkg/utils"
+                }' "$file"
+            fi
+            
+            # 替换错误处理
+            sed -i.bak 's/httpx\.ErrorCtx(r\.Context(), w, err)/utils.HandleError(w, err)/g' "$file"
+            
+            # 删除备份文件
+            rm -f "$file.bak"
+            
+            print_info "✅ 修复完成: $file"
+        fi
+    done
+    
+    print_success "🎉 Handler错误处理修复完成！"
 }
 
 # 主函数

@@ -84,20 +84,9 @@ func (ss *SchedulerService) setupPeriodicTasks() error {
 		return err
 	}
 
-	// 每2小时执行异常检测 (价格变动>10%, BSR变动>30%)
-	anomalyDetection := queue.TaskPayload{
-		TaskType: queue.TaskTypeAnomalyDetection,
-		Priority: 8, // 高优先级，因为是重要的监控功能
-		Metadata: map[string]interface{}{
-			"detection_type": "full_scan",
-			"price_threshold": 10.0,
-			"bsr_threshold": 30.0,
-		},
-	}
-	
-	if err := ss.queueMgr.SchedulePeriodicTask("0 */2 * * *", queue.TaskTypeAnomalyDetection, anomalyDetection); err != nil {
-		return err
-	}
+	// 🚫 移除异常检测定时任务 - 改为数据驱动模式
+	// 异常检测现在由数据更新时自动触发，无需定时扫描
+	// 当Apify Worker保存数据后会立即检测并发送Redis消息
 
 	// 每天早上8点触发竞争对手分析 (对设置为daily的分析组)
 	dailyCompetitorAnalysis := queue.TaskPayload{

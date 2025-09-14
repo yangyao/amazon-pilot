@@ -1,19 +1,22 @@
 package middleware
 
-import "net/http"
+import (
+	"net/http"
 
+	sharedMiddleware "amazonpilot/internal/pkg/middleware"
+)
+
+// RateLimitMiddleware 包装共享的限流中间件
 type RateLimitMiddleware struct {
+	shared *sharedMiddleware.RateLimitMiddleware
 }
 
 func NewRateLimitMiddleware() *RateLimitMiddleware {
-	return &RateLimitMiddleware{}
+	return &RateLimitMiddleware{
+		shared: sharedMiddleware.NewRateLimitMiddleware(),
+	}
 }
 
 func (m *RateLimitMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO generate middleware implement function, delete after code implementation
-
-		// Passthrough to next handler if need
-		next(w, r)
-	}
+	return m.shared.Handle(next)
 }

@@ -46,27 +46,7 @@ func (l *GetProfileLogic) GetProfile() (resp *types.ProfileResponse, err error) 
 		return nil, errors.ErrInternalServer
 	}
 
-	// 查找用户设置
-	var settings models.UserSettings
-	if err := l.svcCtx.DB.Where("user_id = ?", userIDStr).First(&settings).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// 如果没有设置，创建默认设置
-			settings = models.UserSettings{
-				UserID:                   userIDStr,
-				NotificationEmail:        true,
-				NotificationPush:         false,
-				Timezone:                 "UTC",
-				Currency:                 "USD",
-				DefaultTrackingFrequency: "daily",
-			}
-			l.svcCtx.DB.Create(&settings)
-		} else {
-			l.Errorf("Database error when fetching settings: %v", err)
-			return nil, errors.ErrInternalServer
-		}
-	}
-
-	// 构建响应
+	// 构建响应 - 简化版本，无用户设置（按questions.md要求）
 	resp = &types.ProfileResponse{
 		User: types.User{
 			ID:          user.ID,
@@ -76,13 +56,7 @@ func (l *GetProfileLogic) GetProfile() (resp *types.ProfileResponse, err error) 
 			IsActive:    user.IsActive,
 			CreatedAt:   user.CreatedAt.Format(time.RFC3339),
 		},
-		Settings: types.UserSettings{
-			NotificationEmail: settings.NotificationEmail,
-			NotificationPush:  settings.NotificationPush,
-			Timezone:          settings.Timezone,
-			Currency:          settings.Currency,
-			TrackingFrequency: settings.DefaultTrackingFrequency,
-		},
+		// Settings removed - not required by questions.md
 	}
 
 	// 使用结构化日志记录业务操作

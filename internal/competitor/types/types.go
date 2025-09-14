@@ -49,11 +49,11 @@ type CompetitorProduct struct {
 }
 
 type CreateAnalysisRequest struct {
-	Name            string   `json:"name"`
-	Description     string   `json:"description,optional"`
-	MainProductID   string   `json:"main_product_id"`
-	UpdateFrequency string   `json:"update_frequency,default=daily"`
-	Metrics         []string `json:"analysis_metrics,optional"`
+	Name                 string   `json:"name"`
+	Description          string   `json:"description,optional"`
+	MainProductID        string   `json:"main_product_id"`
+	CompetitorProductIDs []string `json:"competitor_product_ids"` // 3-5个竞品产品ID
+	Metrics              []string `json:"analysis_metrics,optional"`
 }
 
 type CreateAnalysisResponse struct {
@@ -62,6 +62,18 @@ type CreateAnalysisResponse struct {
 	MainProductID string `json:"main_product_id"`
 	Status        string `json:"status"`
 	CreatedAt     string `json:"created_at"`
+}
+
+type GenerateReportRequest struct {
+	AnalysisID string `path:"analysis_id"`
+	Force      bool   `json:"force,optional"` // 强制重新生成
+}
+
+type GenerateReportResponse struct {
+	ReportID  string `json:"report_id"`
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+	StartedAt string `json:"started_at"`
 }
 
 type GetAnalysisRequest struct {

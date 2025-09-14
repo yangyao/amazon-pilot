@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -13,28 +15,78 @@ import (
 	"amazonpilot/internal/pkg/metrics"
 	"amazonpilot/internal/pkg/middleware"
 
+	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gopkg.in/yaml.v2"
 )
 
+type Config struct {
+	Name      string            `yaml:"Name"`
+	Host      string            `yaml:"Host"`
+	Port      int               `yaml:"Port"`
+	Services  map[string]string `yaml:"Services"`
+	RateLimit struct {
+		RequestsPerSecond int `yaml:"RequestsPerSecond"`
+		BurstSize         int `yaml:"BurstSize"`
+	} `yaml:"RateLimit"`
+}
+
+func loadConfig() *Config {
+	configFile := "cmd/gateway/etc/gateway.yaml"
+	if len(os.Args) > 1 && strings.HasPrefix(os.Args[1], "-f") {
+		if len(os.Args) > 2 {
+			configFile = os.Args[2]
+		}
+	}
+
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		slog.Error("Failed to read config file", "file", configFile, "error", err)
+		os.Exit(1)
+	}
+
+	var config Config
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		slog.Error("Failed to parse config file", "file", configFile, "error", err)
+		os.Exit(1)
+	}
+
+	return &config
+}
+
 func main() {
+	// 加载.env文件 (敏感信息)
+	if err := godotenv.Load(".env"); err != nil {
+		log.Printf("Warning: .env file not found: %v", err)
+	}
+
 	// 初始化结构化日志
 	logger.InitStructuredLogger()
 
-	// 服务映射
-	services := map[string]string{
-		"auth":         "http://localhost:8888",
-		"product":      "http://localhost:8889",
-		"competitor":   "http://localhost:8890",
-		"optimization": "http://localhost:8891",
-		"notification": "http://localhost:8892",
-		"ops":          "http://localhost:8893",
-	}
+	// 加载YAML配置
+	config := loadConfig()
+	slog.Info("Gateway configuration loaded",
+		"name", config.Name,
+		"host", config.Host,
+		"port", config.Port,
+		"services", len(config.Services))
+
+	// 服务映射从配置文件读取
+	services := config.Services
 
 	// 创建代理
 	proxies := make(map[string]*httputil.ReverseProxy)
 	for service, target := range services {
 		targetURL, _ := url.Parse(target)
-		proxies[service] = httputil.NewSingleHostReverseProxy(targetURL)
+		proxy := httputil.NewSingleHostReverseProxy(targetURL)
+
+		// 设置更长的超时时间，适合Apify搜索
+		proxy.Transport = &http.Transport{
+			ResponseHeaderTimeout: 10 * time.Minute, // 10分钟超时
+			IdleConnTimeout:       15 * time.Minute,
+		}
+
+		proxies[service] = proxy
 		metrics.SetServiceHealth(service, true)
 		slog.Info("Service registered", "service", service, "target", target)
 	}
@@ -55,19 +107,19 @@ func main() {
 	// Prometheus指标
 	mux.Handle("/metrics", promhttp.Handler())
 
-	// API代理
+	// API代理 - 简化路由，直接转发完整路径
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		setCORSHeaders(w, r)
-		
+
 		if r.Method == "OPTIONS" {
 			return
 		}
 
-		// 解析路径
+		// 解析服务名：/api/auth/... -> auth
 		path := strings.TrimPrefix(r.URL.Path, "/api/")
 		parts := strings.Split(path, "/")
-		
+
 		if len(parts) == 0 || parts[0] == "" {
 			middleware.GatewayErrorHandler(w, http.StatusBadRequest, "Service name required")
 			return
@@ -80,17 +132,11 @@ func main() {
 			return
 		}
 
-		// 重写路径：保留service前缀
-		// /api/auth/health -> /auth/health  
-		// /api/auth/login -> /auth/login
-		r.URL.Path = "/" + path
-
 		// 记录日志
 		slog.Info("Proxying request",
 			"service", serviceName,
 			"method", r.Method,
-			"original_path", "/api/"+path,
-			"target_path", r.URL.Path,
+			"path", r.URL.Path,
 		)
 
 		// 代理请求
@@ -99,9 +145,9 @@ func main() {
 
 		// 记录指标
 		duration := time.Since(start)
-		metrics.HTTPRequestsTotal.WithLabelValues(serviceName, r.Method, "/api/"+path, fmt.Sprintf("%d", rw.statusCode)).Inc()
-		metrics.HTTPRequestDuration.WithLabelValues(serviceName, r.Method, "/api/"+path).Observe(float64(duration.Milliseconds()))
-		
+		metrics.HTTPRequestsTotal.WithLabelValues(serviceName, r.Method, r.URL.Path, fmt.Sprintf("%d", rw.statusCode)).Inc()
+		metrics.HTTPRequestDuration.WithLabelValues(serviceName, r.Method, r.URL.Path).Observe(float64(duration.Milliseconds()))
+
 		slog.Info("Request completed",
 			"service", serviceName,
 			"status", rw.statusCode,
@@ -109,19 +155,24 @@ func main() {
 		)
 	})
 
-	fmt.Println("🚀 API Gateway starting on :8080")
+	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
+	fmt.Printf("🚀 %s starting on %s\n", config.Name, addr)
 	fmt.Println("📡 Service routing:")
 	for service, target := range services {
 		fmt.Printf("   /api/%s/* → %s\n", service, target)
 	}
 
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	slog.Info("Starting API Gateway",
+		"address", addr,
+		"services", len(services))
+
+	if err := http.ListenAndServe(addr, mux); err != nil {
 		slog.Error("Gateway failed", "error", err)
 	}
 }
 
 func setCORSHeaders(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:4000")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
 	w.Header().Set("Access-Control-Allow-Credentials", "true")

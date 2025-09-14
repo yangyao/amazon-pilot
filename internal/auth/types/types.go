@@ -38,8 +38,7 @@ type PingResponse struct {
 }
 
 type ProfileResponse struct {
-	User     User         `json:"user"`
-	Settings UserSettings `json:"settings"`
+	User User `json:"user"`
 }
 
 type ProfileUpdateRequest struct {
@@ -70,12 +69,4 @@ type User struct {
 	Plan        string `json:"plan"`
 	IsActive    bool   `json:"is_active"`
 	CreatedAt   string `json:"created_at"`
-}
-
-type UserSettings struct {
-	NotificationEmail bool   `json:"notification_email"`
-	NotificationPush  bool   `json:"notification_push"`
-	Timezone          string `json:"timezone"`
-	Currency          string `json:"currency"`
-	TrackingFrequency string `json:"tracking_frequency"`
 }

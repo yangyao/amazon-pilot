@@ -101,14 +101,6 @@ export default function Navigation() {
               >
                 Optimization
               </Link>
-              <Link 
-                href="/ops" 
-                className={`text-gray-700 hover:text-blue-600 ${
-                  pathname === '/ops' ? 'font-medium text-blue-600' : ''
-                }`}
-              >
-                System Ops
-              </Link>
               
               {/* User Menu */}
               <div className="flex items-center space-x-4">

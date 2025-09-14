@@ -35,6 +35,9 @@ RUN adduser -D -s /bin/sh appuser
 COPY --from=builder /app/product-service /app/product-service
 COPY --from=builder /app/cmd/product/etc /app/etc
 
+# 复制环境配置文件 (敏感信息)
+COPY .env /app/.env
+
 # 设定权限
 RUN chown -R appuser:appuser /app
 USER appuser
@@ -44,7 +47,8 @@ EXPOSE 8002
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8002/health || exit 1
+  CMD curl -f http://localhost:8002/api/product/health || exit 1
 
 # 启动应用
+WORKDIR /app
 CMD ["/app/product-service", "-f", "/app/etc/product-api.yaml"]

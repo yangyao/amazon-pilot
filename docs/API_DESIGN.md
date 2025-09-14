@@ -6,7 +6,7 @@
 
 ## 基本資訊
 
-- **Base URL**: `https://api.amazon-monitor.com/v1`
+- **Base URL**: `https://amazon-pilot-api.phpman.top`
 - **協議**: HTTPS
 - **格式**: JSON
 - **編碼**: UTF-8
@@ -45,171 +45,6 @@ Response:
 }
 ```
 
-### goZero 認證實現
-
-```go
-// 認證服務
-package auth
-
-import (
-    "errors"
-    "time"
-
-    "github.com/golang-jwt/jwt/v4"
-    "github.com/zeromicro/go-zero/core/logx"
-    "golang.org/x/crypto/bcrypt"
-    "gorm.io/gorm"
-)
-
-type AuthService struct {
-    db          *gorm.DB
-    jwtSecret   string
-    accessExpire int64
-}
-
-type Claims struct {
-    UserID string `json:"user_id"`
-    Email  string `json:"email"`
-    Plan   string `json:"plan"`
-    jwt.RegisteredClaims
-}
-
-type User struct {
-    ID           string `gorm:"primaryKey"`
-    Email        string `gorm:"uniqueIndex"`
-    PasswordHash string
-    Plan         string
-    CreatedAt    time.Time
-    UpdatedAt    time.Time
-}
-
-func NewAuthService(db *gorm.DB, jwtSecret string, accessExpire int64) *AuthService {
-    return &AuthService{
-        db:           db,
-        jwtSecret:    jwtSecret,
-        accessExpire: accessExpire,
-    }
-}
-
-// 密碼加密
-func (s *AuthService) HashPassword(password string) (string, error) {
-    bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-    return string(bytes), err
-}
-
-// 密碼驗證
-func (s *AuthService) CheckPassword(password, hash string) bool {
-    err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-    return err == nil
-}
-
-// 生成 JWT Token
-func (s *AuthService) GenerateToken(userID, email, plan string) (string, error) {
-    now := time.Now()
-    claims := Claims{
-        UserID: userID,
-        Email:  email,
-        Plan:   plan,
-        RegisteredClaims: jwt.RegisteredClaims{
-            ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(s.accessExpire) * time.Second)),
-            IssuedAt:  jwt.NewNumericDate(now),
-            NotBefore: jwt.NewNumericDate(now),
-        },
-    }
-
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-    return token.SignedString([]byte(s.jwtSecret))
-}
-
-// 驗證 JWT Token
-func (s *AuthService) ValidateToken(tokenString string) (*Claims, error) {
-    token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-            return nil, errors.New("unexpected signing method")
-        }
-        return []byte(s.jwtSecret), nil
-    })
-
-    if err != nil {
-        return nil, err
-    }
-
-    if claims, ok := token.Claims.(*Claims); ok && token.Valid {
-        return claims, nil
-    }
-
-    return nil, errors.New("invalid token")
-}
-
-// 用戶登入
-func (s *AuthService) Login(email, password string) (*User, string, error) {
-    var user User
-    if err := s.db.Where("email = ?", email).First(&user).Error; err != nil {
-        if errors.Is(err, gorm.ErrRecordNotFound) {
-            return nil, "", errors.New("user not found")
-        }
-        return nil, "", err
-    }
-
-    if !s.CheckPassword(password, user.PasswordHash) {
-        return nil, "", errors.New("invalid password")
-    }
-
-    token, err := s.GenerateToken(user.ID, user.Email, user.Plan)
-    if err != nil {
-        return nil, "", err
-    }
-
-    return &user, token, nil
-}
-
-// 用戶註冊
-func (s *AuthService) Register(email, password, plan string) (*User, error) {
-    // 檢查用戶是否已存在
-    var existingUser User
-    if err := s.db.Where("email = ?", email).First(&existingUser).Error; err == nil {
-        return nil, errors.New("user already exists")
-    }
-
-    // 加密密碼
-    hashedPassword, err := s.HashPassword(password)
-    if err != nil {
-        return nil, err
-    }
-
-    // 創建新用戶
-    user := User{
-        ID:           generateUUID(),
-        Email:        email,
-        PasswordHash: hashedPassword,
-        Plan:         plan,
-        CreatedAt:    time.Now(),
-        UpdatedAt:    time.Now(),
-    }
-
-    if err := s.db.Create(&user).Error; err != nil {
-        return nil, err
-    }
-
-    return &user, nil
-}
-
-// 中間件：獲取當前用戶
-func (s *AuthService) GetCurrentUser(tokenString string) (*User, error) {
-    claims, err := s.ValidateToken(tokenString)
-    if err != nil {
-        return nil, err
-    }
-
-    var user User
-    if err := s.db.Where("id = ?", claims.UserID).First(&user).Error; err != nil {
-        return nil, err
-    }
-
-    return &user, nil
-}
-```
-
 ## Rate Limiting
 
 - **一般用戶**: 100 requests/minute
@@ -222,128 +57,6 @@ Rate limit 資訊會在 response headers 中返回：
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
 X-RateLimit-Reset: 1640995200
-```
-
-### goZero Rate Limiting 實現
-
-```go
-// 限流中間件
-package middleware
-
-import (
-    "context"
-    "fmt"
-    "net/http"
-    "strconv"
-    "time"
-
-    "github.com/zeromicro/go-zero/core/logx"
-    "github.com/zeromicro/go-zero/core/stores/redis"
-    "github.com/zeromicro/go-zero/rest/httpx"
-)
-
-type RateLimiter struct {
-    redis *redis.Redis
-}
-
-func NewRateLimiter(redis *redis.Redis) *RateLimiter {
-    return &RateLimiter{redis: redis}
-}
-
-// 根據用戶計劃獲取限流設定
-func (rl *RateLimiter) getRateLimit(plan string) int {
-    limits := map[string]int{
-        "basic":     100,
-        "premium":   500,
-        "enterprise": 2000,
-    }
-    if limit, ok := limits[plan]; ok {
-        return limit
-    }
-    return 100
-}
-
-// 限流中間件
-func (rl *RateLimiter) RateLimitMiddleware() rest.Middleware {
-    return func(next http.HandlerFunc) http.HandlerFunc {
-        return func(w http.ResponseWriter, r *http.Request) {
-            // 從 context 獲取用戶信息
-            user := getUserFromContext(r.Context())
-            if user == nil {
-                httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-                    "error": map[string]interface{}{
-                        "code":    "UNAUTHORIZED",
-                        "message": "User not authenticated",
-                    },
-                })
-                return
-            }
-
-            // 獲取限流設定
-            limit := rl.getRateLimit(user.Plan)
-            
-            // 檢查限流
-            remaining, resetTime, allowed := rl.checkRateLimit(r, user.ID, limit)
-            
-            // 設置限流 headers
-            w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limit))
-            w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
-            w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(resetTime, 10))
-            
-            if !allowed {
-                httpx.WriteJson(w, http.StatusTooManyRequests, map[string]interface{}{
-                    "error": map[string]interface{}{
-                        "code":    "RATE_LIMIT_EXCEEDED",
-                        "message": "Too many requests",
-                        "retry_after": 60,
-                    },
-                })
-                return
-            }
-
-            next(w, r)
-        }
-    }
-}
-
-// 檢查限流並返回詳細信息
-func (rl *RateLimiter) checkRateLimit(r *http.Request, userID string, limit int) (remaining int, resetTime int64, allowed bool) {
-    // 使用滑動窗口算法
-    now := time.Now()
-    windowStart := now.Unix() / 60
-    key := fmt.Sprintf("rate_limit:%s:%d", userID, windowStart)
-    
-    // 獲取當前計數
-    count, err := rl.redis.Get(key)
-    if err != nil && err != redis.Nil {
-        logx.Errorf("Failed to get rate limit count: %v", err)
-        return limit, now.Unix() + 60, true // 出錯時允許通過
-    }
-    
-    currentCount := 0
-    if count != "" {
-        currentCount, _ = strconv.Atoi(count)
-    }
-    
-    remaining = limit - currentCount - 1
-    resetTime = (windowStart + 1) * 60
-    
-    // 檢查是否超過限制
-    if currentCount >= limit {
-        return 0, resetTime, false
-    }
-    
-    // 增加計數
-    pipe := rl.redis.Pipeline()
-    pipe.Incr(key)
-    pipe.Expire(key, 60*time.Second)
-    _, err = pipe.Exec()
-    if err != nil {
-        logx.Errorf("Failed to increment rate limit: %v", err)
-    }
-    
-    return remaining, resetTime, true
-}
 ```
 
 ## API Endpoints
@@ -366,117 +79,6 @@ Response: 201 Created
 {
   "message": "User created successfully",
   "user_id": "user-uuid"
-}
-```
-
-#### FastAPI 實現
-
-```python
-from pydantic import BaseModel, EmailStr, validator
-from typing import Optional, Literal
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer
-
-# Pydantic 模型
-class UserRegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    company_name: Optional[str] = None
-    plan: Literal["basic", "premium", "enterprise"] = "basic"
-    
-    @validator('password')
-    def validate_password(cls, v):
-        if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters long')
-        return v
-
-class UserRegisterResponse(BaseModel):
-    message: str
-    user_id: str
-
-class UserLoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-class UserLoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
-    user: dict
-
-# 路由定義
-auth_router = APIRouter(prefix="/auth", tags=["authentication"])
-
-@auth_router.post("/register", response_model=UserRegisterResponse, status_code=201)
-async def register_user(user_data: UserRegisterRequest):
-    """用戶註冊"""
-    try:
-        # 檢查用戶是否已存在
-        existing_user = await get_user_by_email(user_data.email)
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User with this email already exists"
-            )
-        
-        # 創建新用戶
-        user_id = await create_user(user_data)
-        
-        return UserRegisterResponse(
-            message="User created successfully",
-            user_id=user_id
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create user"
-        )
-
-@auth_router.post("/login", response_model=UserLoginResponse)
-async def login_user(login_data: UserLoginRequest):
-    """用戶登入"""
-    # 驗證用戶憑證
-    user = await authenticate_user(login_data.email, login_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # 生成 JWT token
-    access_token = auth_service.create_access_token(
-        data={"sub": user.id, "email": user.email}
-    )
-    
-    return UserLoginResponse(
-        access_token=access_token,
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        user={
-            "id": user.id,
-            "email": user.email,
-            "role": user.role
-        }
-    )
-```
-
-#### 用戶資料更新
-```http
-PUT /users/profile
-Authorization: Bearer <token>
-
-{
-  "company_name": "Updated Store Name",
-  "notification_settings": {
-    "email": true,
-    "push": false
-  }
-}
-
-Response: 200 OK
-{
-  "message": "Profile updated successfully"
 }
 ```
 
@@ -508,34 +110,36 @@ Response: 201 Created
 }
 ```
 
-#### 取得追蹤產品列表
+#### 取得追蹤記錄列表
+
 ```http
-GET /products/tracked?page=1&limit=20&category=electronics&status=active
+GET /api/product/products/tracked?page=1&limit=20&category=electronics&status=active
 Authorization: Bearer <token>
 
 Response: 200 OK
 {
-  "products": [
+  "tracked": [
     {
-      "id": "prod-uuid",
+      "id": "tracked-record-uuid",           // tracked_products.id
+      "product_id": "product-uuid",          // products.id (用于竞品分析)
       "asin": "B08N5WRWNW",
       "title": "Sony WH-1000XM4 Wireless Headphones",
-      "alias": "我的藍牙耳機",
+      "alias": "我的蓝牙耳机",
       "current_price": 299.99,
       "currency": "USD",
       "bsr": 15,
       "rating": 4.5,
       "review_count": 1250,
       "buy_box_price": 299.99,
-      "last_updated": "2024-01-14T15:30:00Z",
+      "last_updated": "2025-09-14T15:30:00Z",
       "status": "active"
     }
   ],
   "pagination": {
     "page": 1,
     "limit": 20,
-    "total": 50,
-    "total_pages": 3
+    "total": 10,
+    "total_pages": 1
   }
 }
 ```
@@ -617,49 +221,150 @@ Response: 200 OK
 }
 ```
 
-### 3. 競品分析 API
+#### 获取异常检测事件
+**实现异常变化监控**：价格变动>10%、BSR变动>30%、评分/评论数变化
 
-#### 建立競品分析群組
 ```http
-POST /competitor-analysis
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "藍牙耳機競品分析",
-  "main_product_asin": "B08N5WRWNW",
-  "competitor_asins": [
-    "B087C8Q3PD",
-    "B08PKHGJDQ",
-    "B086DGBSPX"
-  ],
-  "analysis_settings": {
-    "update_frequency": "daily",
-    "metrics": ["price", "bsr", "rating", "features"]
-  }
-}
-
-Response: 201 Created
-{
-  "analysis_id": "analysis-uuid",
-  "status": "pending",
-  "estimated_completion": "2024-01-15T10:00:00Z"
-}
-```
-
-#### 取得競品分析結果
-```http
-GET /competitor-analysis/{analysis_id}
+GET /api/product/products/anomaly-events?page=1&limit=50&event_type=price_change&severity=critical
 Authorization: Bearer <token>
 
 Response: 200 OK
 {
-  "id": "analysis-uuid",
-  "name": "藍牙耳機競品分析",
+  "events": [
+    {
+      "id": "anomaly-event-uuid",
+      "product_id": "product-uuid",
+      "asin": "B08N5WRWNW",
+      "event_type": "price_change",
+      "old_value": 299.99,
+      "new_value": 249.99,
+      "change_percentage": -16.67,
+      "threshold": 10.0,
+      "severity": "critical",
+      "created_at": "2025-09-14T15:30:00Z",
+      "product_title": "Sony WH-1000XM4"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 15,
+    "total_pages": 1
+  }
+}
+```
+
+**支持的事件类型**：
+- `price_change` - 价格变动 (阈值>10%)
+- `bsr_change` - BSR排名变动 (阈值>30%)
+- `rating_change` - 评分变化
+- `review_count_change` - 评论数变化
+- `buybox_change` - Buy Box价格变动
+
+### 3. 競品分析 API
+
+
+#### 建立競品分析群組
+从已追踪产品中选择主产品和3-5个竞品，创建多维度比较分析组。
+
+```http
+POST /api/competitor/analysis
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "蓝牙耳机竞品分析",
+  "description": "分析组描述（可选）",
+  "main_product_id": "product-uuid-main",
+  "competitor_product_ids": [
+    "product-uuid-competitor1",
+    "product-uuid-competitor2",
+    "product-uuid-competitor3"
+  ],
+  "analysis_metrics": ["price", "bsr", "rating", "features"]
+}
+
+Response: 201 Created
+{
+  "id": "analysis-group-uuid",
+  "name": "蓝牙耳机竞品分析",
+  "main_product_id": "product-uuid-main",
+  "status": "active",
+  "created_at": "2025-09-14T15:30:00Z"
+}
+```
+
+**特点：**
+- 从已追踪产品选择，利用现有Apify数据
+- 支持3-5个竞品产品
+
+#### 列出分析群組
+```http
+GET /api/competitor/analysis?page=1&limit=20
+Authorization: Bearer <token>
+
+Response: 200 OK
+{
+  "groups": [
+    {
+      "id": "analysis-group-uuid",
+      "name": "蓝牙耳机竞品分析",
+      "description": "主打产品与市场竞品的全方位对比",
+      "main_product_asin": "B08N5WRWNW",
+      "competitor_count": 3,
+      "status": "active",
+      "last_analysis": "2025-09-14T15:30:00Z",
+      "created_at": "2025-09-14T10:00:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "total_pages": 1
+  }
+}
+```
+
+#### 生成LLM竞争定位报告
+**使用DeepSeek生成竞争分析报告**
+
+```http
+POST /api/competitor/analysis/{analysis_id}/generate-report
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "force": false  // 是否强制重新生成
+}
+
+Response: 200 OK
+{
+  "report_id": "report-uuid",
   "status": "completed",
-  "created_at": "2024-01-14T15:00:00Z",
-  "updated_at": "2024-01-14T16:30:00Z",
+  "message": "竞争定位报告生成完成",
+  "started_at": "2025-09-14T17:49:26+08:00"
+}
+```
+
+**生成特点**：
+- 同步生成，直接返回结果
+- 基于真实产品数据（价格、BSR、评分）
+- DeepSeek中文竞争分析专家
+- 支持force重新生成已有报告
+
+#### 取得競品分析結果
+```http
+GET /api/competitor/analysis/{analysis_id}
+Authorization: Bearer <token>
+
+Response: 200 OK
+{
+  "id": "analysis-group-uuid",
+  "name": "蓝牙耳机竞品分析",
+  "description": "竞品对比分析组",
   "main_product": {
+    "id": "product-uuid-main",
     "asin": "B08N5WRWNW",
     "title": "Sony WH-1000XM4",
     "price": 299.99,
@@ -698,43 +403,11 @@ Response: 200 OK
 }
 ```
 
-#### 取得競品分析報告
-```http
-GET /competitor-analysis/{analysis_id}/report
-Authorization: Bearer <token>
-
-Response: 200 OK
-{
-  "analysis_id": "analysis-uuid",
-  "report": {
-    "executive_summary": "Your product is positioned in the premium segment...",
-    "price_analysis": {
-      "your_price": 299.99,
-      "avg_competitor_price": 285.50,
-      "price_ranking": 3,
-      "recommendation": "Consider 5-10% price reduction"
-    },
-    "performance_analysis": {
-      "bsr_ranking": 15,
-      "avg_competitor_bsr": 12,
-      "rating_comparison": "Above average",
-      "review_velocity": "Moderate"
-    },
-    "feature_comparison": {
-      "unique_features": ["Quick Attention Mode", "LDAC Audio"],
-      "missing_features": ["Water Resistance"],
-      "feature_gaps": []
-    }
-  },
-  "generated_at": "2024-01-14T16:30:00Z"
-}
-```
-
 ### 4. Listing 優化建議 API
 
 #### 生成優化建議
 ```http
-POST /optimization/analyze
+POST /api/optimization/analyze
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -760,7 +433,7 @@ Response: 202 Accepted
 
 #### 取得優化建議結果
 ```http
-GET /optimization/{analysis_id}
+GET /api/optimization/{analysis_id}
 Authorization: Bearer <token>
 
 Response: 200 OK
@@ -822,52 +495,6 @@ Response: 200 OK
 {
   "message": "Implementation tracked successfully",
   "tracking_id": "track-uuid"
-}
-```
-
-### 5. 通知與警告 API
-
-#### 取得通知列表
-```http
-GET /notifications?page=1&limit=20&type=alert&status=unread
-Authorization: Bearer <token>
-
-Response: 200 OK
-{
-  "notifications": [
-    {
-      "id": "notif-uuid",
-      "type": "price_alert",
-      "title": "Price Drop Alert",
-      "message": "Sony WH-1000XM4 price dropped by 15%",
-      "product_id": "prod-uuid",
-      "severity": "medium",
-      "created_at": "2024-01-14T10:00:00Z",
-      "read_at": null,
-      "data": {
-        "old_price": 299.99,
-        "new_price": 254.99,
-        "change_percentage": -15.0
-      }
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 5,
-    "total_pages": 1
-  }
-}
-```
-
-#### 標記通知為已讀
-```http
-PUT /notifications/{notification_id}/read
-Authorization: Bearer <token>
-
-Response: 200 OK
-{
-  "message": "Notification marked as read"
 }
 ```
 
@@ -940,19 +567,10 @@ X-Migration-Guide: https://docs.api.amazon-monitor.com/migration/v2
 
 ```http
 GET /products/tracked?page=2&limit=50
-
-Response Headers:
-Link: <https://api.amazon-monitor.com/v1/products/tracked?page=1&limit=50>; rel="first",
-      <https://api.amazon-monitor.com/v1/products/tracked?page=3&limit=50>; rel="next",
-      <https://api.amazon-monitor.com/v1/products/tracked?page=10&limit=50>; rel="last"
 ```
 
 ## 快取策略
-
-- `Cache-Control` headers 用於指示快取策略
-- ETags 用於條件式請求
 - 產品資料快取 24 小時
-- 分析結果快取 1 小時
 
 ```http
 GET /products/{product_id}

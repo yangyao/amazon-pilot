@@ -1,8 +1,29 @@
 version: '3.8'
 
 services:
+  # PostgreSQL 数据库
+  amazon-pilot-postgres:
+    image: postgres:15-alpine
+    container_name: amazon-pilot-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=amazon_pilot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=amazon123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - amazon-pilot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
   # Redis 缓存和队列
-  redis:
+  amazon-pilot-redis:
     image: redis:7-alpine
     container_name: amazon-pilot-redis
     ports:
@@ -20,20 +41,26 @@ services:
         max-file: "3"
 
   # Auth Service
-  auth-service:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.auth
-    container_name: amazon-pilot-auth
+  amazon-pilot-auth-service:
+    image: amazon-pilot-auth:latest
+    container_name: amazon-pilot-auth-service
     ports:
       - "8001:8001"
     environment:
       - ENVIRONMENT=production
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=${SUPABASE_URL}
+      - DATABASE_DSN=${DATABASE_DSN}
+      - DATABASE_MAX_IDLE_CONNS=${DATABASE_MAX_IDLE_CONNS}
+      - DATABASE_MAX_OPEN_CONNS=${DATABASE_MAX_OPEN_CONNS}
+      - DATABASE_CONN_MAX_LIFETIME=${DATABASE_CONN_MAX_LIFETIME}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_DB=${REDIS_DB}
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE}
     depends_on:
-      - redis
+      - amazon-pilot-postgres
+      - amazon-pilot-redis
     restart: unless-stopped
     networks:
       - amazon-pilot-network
@@ -44,20 +71,27 @@ services:
         max-file: "3"
 
   # Product Service
-  product-service:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.product
-    container_name: amazon-pilot-product
+  amazon-pilot-product-service:
+    image: amazon-pilot-product:latest
+    container_name: amazon-pilot-product-service
     ports:
       - "8002:8002"
     environment:
       - ENVIRONMENT=production
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=${SUPABASE_URL}
-      - APIFY_TOKEN=${APIFY_TOKEN}
+      - DATABASE_DSN=${DATABASE_DSN}
+      - DATABASE_MAX_IDLE_CONNS=${DATABASE_MAX_IDLE_CONNS}
+      - DATABASE_MAX_OPEN_CONNS=${DATABASE_MAX_OPEN_CONNS}
+      - DATABASE_CONN_MAX_LIFETIME=${DATABASE_CONN_MAX_LIFETIME}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_DB=${REDIS_DB}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE}
+      - APIFY_API_TOKEN=${APIFY_API_TOKEN}
     depends_on:
-      - redis
+      - amazon-pilot-postgres
+      - amazon-pilot-redis
     restart: unless-stopped
     networks:
       - amazon-pilot-network
@@ -68,21 +102,28 @@ services:
         max-file: "3"
 
   # Competitor Service
-  competitor-service:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.competitor
-    container_name: amazon-pilot-competitor
+  amazon-pilot-competitor-service:
+    image: amazon-pilot-competitor:latest
+    container_name: amazon-pilot-competitor-service
     ports:
       - "8003:8003"
     environment:
       - ENVIRONMENT=production
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=${SUPABASE_URL}
-      - APIFY_TOKEN=${APIFY_TOKEN}
+      - DATABASE_DSN=${DATABASE_DSN}
+      - DATABASE_MAX_IDLE_CONNS=${DATABASE_MAX_IDLE_CONNS}
+      - DATABASE_MAX_OPEN_CONNS=${DATABASE_MAX_OPEN_CONNS}
+      - DATABASE_CONN_MAX_LIFETIME=${DATABASE_CONN_MAX_LIFETIME}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_DB=${REDIS_DB}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE}
+      - APIFY_API_TOKEN=${APIFY_API_TOKEN}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
-      - redis
+      - amazon-pilot-postgres
+      - amazon-pilot-redis
     restart: unless-stopped
     networks:
       - amazon-pilot-network
@@ -93,20 +134,46 @@ services:
         max-file: "3"
 
   # Optimization Service
-  optimization-service:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.optimization
-    container_name: amazon-pilot-optimization
+  amazon-pilot-optimization-service:
+    image: amazon-pilot-optimization:latest
+    container_name: amazon-pilot-optimization-service
     ports:
       - "8004:8004"
     environment:
       - ENVIRONMENT=production
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=${SUPABASE_URL}
+      - DATABASE_DSN=${DATABASE_DSN}
+      - DATABASE_MAX_IDLE_CONNS=${DATABASE_MAX_IDLE_CONNS}
+      - DATABASE_MAX_OPEN_CONNS=${DATABASE_MAX_OPEN_CONNS}
+      - DATABASE_CONN_MAX_LIFETIME=${DATABASE_CONN_MAX_LIFETIME}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_DB=${REDIS_DB}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
-      - redis
+      - amazon-pilot-postgres
+      - amazon-pilot-redis
+    restart: unless-stopped
+    networks:
+      - amazon-pilot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # Gateway Service (API Gateway)
+  amazon-pilot-gateway:
+    image: amazon-pilot-gateway:latest
+    container_name: amazon-pilot-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - amazon-pilot-auth-service
+      - amazon-pilot-product-service
+      - amazon-pilot-competitor-service
     restart: unless-stopped
     networks:
       - amazon-pilot-network
@@ -117,23 +184,12 @@ services:
         max-file: "3"
 
   # Notification Service
-  notification-service:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.notification
-    container_name: amazon-pilot-notification
+  # Frontend Service
+  amazon-pilot-frontend-service:
+    image: amazon-pilot-frontend:latest
+    container_name: amazon-pilot-frontend-service
     ports:
-      - "8005:8005"
-    environment:
-      - ENVIRONMENT=production
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=${SUPABASE_URL}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_PORT=${SMTP_PORT}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-    depends_on:
-      - redis
+      - "4000:3000"
     restart: unless-stopped
     networks:
       - amazon-pilot-network
@@ -143,37 +199,16 @@ services:
         max-size: "100m"
         max-file: "3"
 
-  # Frontend Service
-  frontend:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.frontend
-    container_name: amazon-pilot-frontend
-    ports:
-      - "3000:3000"
-    restart: unless-stopped
-    networks:
-      - amazon-pilot-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
 
   # Asynq Worker (后台任务处理)
-  asynq-worker:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.worker
-    container_name: amazon-pilot-worker
+  amazon-pilot-worker-service:
+    image: amazon-pilot-worker:latest
+    container_name: amazon-pilot-worker-service
     environment:
       - ENVIRONMENT=production
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=${SUPABASE_URL}
-      - APIFY_TOKEN=${APIFY_TOKEN}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
-      - redis
+      - amazon-pilot-postgres
+      - amazon-pilot-redis
     restart: unless-stopped
     networks:
       - amazon-pilot-network
@@ -184,17 +219,14 @@ services:
         max-file: "3"
 
   # Asynq Scheduler (定时任务调度)
-  asynq-scheduler:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.scheduler
-    container_name: amazon-pilot-scheduler
+  amazon-pilot-scheduler-service:
+    image: amazon-pilot-scheduler:latest
+    container_name: amazon-pilot-scheduler-service
     environment:
       - ENVIRONMENT=production
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=${SUPABASE_URL}
     depends_on:
-      - redis
+      - amazon-pilot-postgres
+      - amazon-pilot-redis
     restart: unless-stopped
     networks:
       - amazon-pilot-network
@@ -204,25 +236,27 @@ services:
         max-size: "100m"
         max-file: "3"
 
-  # Asynq Monitor (任务监控界面)
-  asynq-monitor:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.monitor
-    container_name: amazon-pilot-monitor
+  # Asynq Dashboard (异步任务监控界面) - 自建服务
+  amazon-pilot-dashboard-service:
+    image: amazon-pilot-dashboard:latest
+    container_name: amazon-pilot-dashboard-service
     ports:
       - "5555:5555"
     environment:
-      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=production
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_DB=${REDIS_DB}
+      - DASHBOARD_PORT=5555
     depends_on:
-      - redis
+      - amazon-pilot-redis
     restart: unless-stopped
     networks:
       - amazon-pilot-network
     logging:
       driver: "json-file"
       options:
-        max-size: "100m"
+        max-size: "10m"
         max-file: "3"
 
   # Prometheus 监控
@@ -260,7 +294,7 @@ services:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
     restart: unless-stopped
@@ -303,9 +337,10 @@ services:
     ports:
       - "9121:9121"
     environment:
-      - REDIS_ADDR=redis://redis:6379
+      - REDIS_ADDR=redis://amazon-pilot-redis:6379
     depends_on:
-      - redis
+      - amazon-pilot-postgres
+      - amazon-pilot-redis
     restart: unless-stopped
     networks:
       - amazon-pilot-network
@@ -316,6 +351,7 @@ services:
         max-file: "3"
 
 volumes:
+  postgres_data:
   redis_data:
   prometheus_data:
   grafana_data:

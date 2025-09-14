@@ -34,9 +34,13 @@ RUN adduser -D -s /bin/sh appuser
 # 从 builder 阶段复制二进制文件
 COPY --from=builder /app/scheduler-service /app/scheduler-service
 
+# 复制环境配置文件 (敏感信息)
+COPY .env /app/.env
+
 # 设定权限
 RUN chown -R appuser:appuser /app
 USER appuser
 
 # 启动应用
+WORKDIR /app
 CMD ["/app/scheduler-service"]

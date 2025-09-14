@@ -7,7 +7,6 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 // Config 数据库配置
@@ -39,8 +38,11 @@ func NewConnection(config *Config) (*gorm.DB, error) {
 
 // NewConnectionWithDSN 使用DSN创建数据库连接
 func NewConnectionWithDSN(dsn string, config *Config) (*gorm.DB, error) {
+	// 使用自定义JSON格式日志器
+	jsonLogger := NewJSONLogger()
+
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: jsonLogger,
 	})
 	if err != nil {
 		return nil, err

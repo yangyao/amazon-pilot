@@ -3,8 +3,11 @@ Host: 0.0.0.0
 Port: 8080
 
 Services:
-  auth: "http://localhost:8888"
-  product: "http://localhost:8889"
-  competitor: "http://localhost:8890"
-  optimization: "http://localhost:8891"
-  notification: "http://localhost:8892"
+  auth: "http://amazon-pilot-auth-service:8001"
+  product: "http://amazon-pilot-product-service:8002"
+  competitor: "http://amazon-pilot-competitor-service:8003"
+  optimization: "http://amazon-pilot-optimization-service:8004"
+
+RateLimit:
+  RequestsPerSecond: 100
+  BurstSize: 200

@@ -7,20 +7,21 @@ import (
 	"amazonpilot/internal/product/logic"
 	"amazonpilot/internal/product/svc"
 	"amazonpilot/internal/product/types"
+	"amazonpilot/internal/pkg/utils"
 )
 
 func getProductDetailsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.GetProductRequest
 		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			utils.HandleError(w, err)
 			return
 		}
 
 		l := logic.NewGetProductDetailsLogic(r.Context(), svcCtx)
 		resp, err := l.GetProductDetails(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			utils.HandleError(w, err)
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

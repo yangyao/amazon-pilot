@@ -47,21 +47,65 @@ func (l *CreateAnalysisGroupLogic) CreateAnalysisGroup(req *types.CreateAnalysis
 		return nil, errors.ErrInternalServer
 	}
 
-	// 创建分析组
+	// 创建分析组 (固定daily更新)
+	nextAnalysis := time.Now().Add(24 * time.Hour)
 	analysisGroup := models.CompetitorAnalysisGroup{
-		UserID:          userIDStr,
-		Name:            req.Name,
-		MainProductID:   req.MainProductID,
-		UpdateFrequency: req.UpdateFrequency,
-		IsActive:        true,
+		UserID:         userIDStr,
+		Name:           req.Name,
+		MainProductID:  req.MainProductID,
+		IsActive:       true,
+		NextAnalysisAt: &nextAnalysis,
 	}
 
 	if req.Description != "" {
 		analysisGroup.Description = &req.Description
 	}
 
-	if err = l.svcCtx.DB.Create(&analysisGroup).Error; err != nil {
+	// 使用事务创建分析组和竞品关联
+	tx := l.svcCtx.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 创建分析组
+	if err = tx.Create(&analysisGroup).Error; err != nil {
+		tx.Rollback()
 		utils.LogError(l.ctx, "Failed to create analysis group", "error", err)
+		return nil, errors.ErrInternalServer
+	}
+
+	// 创建竞品产品关联记录
+	if len(req.CompetitorProductIDs) > 0 {
+		competitorProducts := make([]models.CompetitorProduct, len(req.CompetitorProductIDs))
+		for i, productID := range req.CompetitorProductIDs {
+			// 验证竞品产品是否存在
+			var product models.Product
+			if err := tx.Where("id = ?", productID).First(&product).Error; err != nil {
+				tx.Rollback()
+				return nil, errors.NewValidationError("Competitor product not found", []errors.FieldError{
+					{Field: "competitor_product_ids", Message: "Product ID " + productID + " does not exist"},
+				})
+			}
+
+			competitorProducts[i] = models.CompetitorProduct{
+				AnalysisGroupID: analysisGroup.ID,
+				ProductID:       productID,
+			}
+		}
+
+		// 批量创建竞品关联
+		if err = tx.Create(&competitorProducts).Error; err != nil {
+			tx.Rollback()
+			utils.LogError(l.ctx, "Failed to create competitor products", "error", err)
+			return nil, errors.ErrInternalServer
+		}
+	}
+
+	// 提交事务
+	if err = tx.Commit().Error; err != nil {
+		utils.LogError(l.ctx, "Failed to commit transaction", "error", err)
 		return nil, errors.ErrInternalServer
 	}
 

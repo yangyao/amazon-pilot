@@ -94,7 +94,7 @@ type (
 )
 
 @server (
-	prefix:     /optimization
+	prefix:     /api/optimization
 	middleware: RateLimitMiddleware
 )
 service optimization-api {
@@ -106,7 +106,7 @@ service optimization-api {
 }
 
 @server (
-	prefix:     /optimization
+	prefix:     /api/optimization
 	jwt:        Auth
 	middleware: RateLimitMiddleware
 )

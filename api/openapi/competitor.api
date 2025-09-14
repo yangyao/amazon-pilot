@@ -11,11 +11,11 @@ info (
 type (
 	// Create analysis group
 	CreateAnalysisRequest {
-		Name            string   `json:"name"`
-		Description     string   `json:"description,optional"`
-		MainProductID   string   `json:"main_product_id"`
-		UpdateFrequency string   `json:"update_frequency,default=daily"`
-		Metrics         []string `json:"analysis_metrics,optional"`
+		Name                 string   `json:"name"`
+		Description          string   `json:"description,optional"`
+		MainProductID        string   `json:"main_product_id"`
+		CompetitorProductIDs []string `json:"competitor_product_ids"` // 3-5个竞品产品ID
+		Metrics              []string `json:"analysis_metrics,optional"`
 	}
 	CreateAnalysisResponse {
 		ID            string `json:"id"`
@@ -114,6 +114,17 @@ type (
 		Total      int `json:"total"`
 		TotalPages int `json:"total_pages"`
 	}
+	// Generate report
+	GenerateReportRequest {
+		AnalysisID string `path:"analysis_id"`
+		Force      bool   `json:"force,optional"` // 强制重新生成
+	}
+	GenerateReportResponse {
+		ReportID  string `json:"report_id"`
+		Status    string `json:"status"`
+		Message   string `json:"message"`
+		StartedAt string `json:"started_at"`
+	}
 	// Health check
 	PingResponse {
 		Status    string `json:"status"`
@@ -129,7 +140,7 @@ type (
 )
 
 @server (
-	prefix:     /competitor
+	prefix:     /api/competitor
 	middleware: RateLimitMiddleware
 )
 service competitor-api {
@@ -142,7 +153,7 @@ service competitor-api {
 }
 
 @server (
-	prefix:     /competitor
+	prefix:     /api/competitor
 	jwt:        Auth
 	middleware: RateLimitMiddleware
 )
@@ -159,5 +170,8 @@ service competitor-api {
 
 	@handler listAnalysisGroups
 	get /analysis (ListAnalysisRequest) returns (ListAnalysisResponse)
+
+	@handler generateReport
+	post /analysis/:analysis_id/generate-report (GenerateReportRequest) returns (GenerateReportResponse)
 }
 

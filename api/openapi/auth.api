@@ -55,15 +55,8 @@ type (
 		Message string `json:"message"`
 	}
 	ProfileResponse {
-		User     User         `json:"user"`
-		Settings UserSettings `json:"settings"`
-	}
-	UserSettings {
-		NotificationEmail bool   `json:"notification_email"`
-		NotificationPush  bool   `json:"notification_push"`
-		Timezone          string `json:"timezone"`
-		Currency          string `json:"currency"`
-		TrackingFrequency string `json:"tracking_frequency"`
+		User User `json:"user"`
+	// Settings removed - not required by questions.md
 	}
 	// Health check responses
 	PingResponse {
@@ -80,7 +73,7 @@ type (
 )
 
 @server (
-	prefix:     /auth
+	prefix:     /api/auth
 	middleware: RateLimitMiddleware
 )
 service auth-api {
@@ -103,7 +96,7 @@ service auth-api {
 }
 
 @server (
-	prefix:     /auth
+	prefix:     /api/auth
 	jwt:        Auth
 	middleware: RateLimitMiddleware
 )

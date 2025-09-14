@@ -4,12 +4,19 @@
 
 本文件描述 Amazon 賣家產品監控與優化工具的資料庫設計，使用 PostgreSQL 作為主要資料庫，Redis 作為快取層。
 
+**实现状态**：
+- ✅ **产品资料追踪系统** (questions.md 选项1) - 完整数据库设计
+- ✅ **竞品分析引擎** (questions.md 选项2) - 完整数据库设计
+
+**当前表总数**：16张表，支持完整的产品追踪、异常检测、竞品分析功能
+**Migration版本**：010 (最新：修复analysis_data约束)
+
 ## 資料庫架構概覽
 
-### 主要資料庫：Supabase (PostgreSQL)
-- **版本**: PostgreSQL 15+
-- **主要用途**: 持久化資料儲存
-- **包含**: 用戶資料、產品資料、追蹤記錄、分析結果
+### 主要資料庫：PostgreSQL with TimescaleDB
+- **版本**: PostgreSQL 15+ with TimescaleDB
+- **主要用途**: 持久化資料儲存和時間序列數據
+- **包含**: 用戶資料、產品資料、追蹤記錄、歷史數據、分析結果
 - **ORM**: Gorm v2
 
 ### 快取層：Redis
@@ -343,73 +350,103 @@ CREATE INDEX idx_ranking_history_category_bsr ON product_ranking_history(categor
 ### 4. 競品分析相關表
 
 #### competitor_analysis_groups (競品分析群組表)
+实现 questions.md 选项2：竞品分析引擎的核心表。
+
+**设计特点：**
+- 分析组名称使用主产品名称
+- 固定每日更新频率（不可用户配置）
+- 支持多维度分析：价格、BSR、评分、产品特色
+- 从已追踪产品中选择主产品和竞品
+
 ```sql
 CREATE TABLE competitor_analysis_groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL, -- 分析组名字就是主产品的名字
     description TEXT,
-    main_product_id UUID NOT NULL REFERENCES products(id),
-    
-    -- 分析設定
-    update_frequency VARCHAR(20) DEFAULT 'daily',
+    main_product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE, -- 引用主产品
+
+    -- 分析設定（固定daily，不可配置）
     analysis_metrics JSONB DEFAULT '["price", "bsr", "rating", "features"]',
     is_active BOOLEAN DEFAULT true,
-    
+
     -- 時間戳記
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     last_analysis_at TIMESTAMP WITH TIME ZONE,
-    
-    CONSTRAINT competitor_groups_frequency_check CHECK (update_frequency IN ('daily', 'weekly', 'monthly'))
+    next_analysis_at TIMESTAMP WITH TIME ZONE -- 自动调度用
 );
 
--- 索引
+-- 索引策略
 CREATE INDEX idx_competitor_groups_user_id ON competitor_analysis_groups(user_id);
 CREATE INDEX idx_competitor_groups_main_product ON competitor_analysis_groups(main_product_id);
 CREATE INDEX idx_competitor_groups_active ON competitor_analysis_groups(is_active, user_id);
+CREATE INDEX idx_competitor_groups_next_analysis ON competitor_analysis_groups(next_analysis_at) WHERE is_active = true;
 ```
 
 #### competitor_products (競品產品表)
+存储每个分析组中的竞品产品关联关系（3-5个竞品）。
+
+**工作流程：**
+1. 用户从已追踪产品中选择竞品
+2. 创建分析组时同时创建竞品关联记录
+3. 利用现有Apify爬虫数据进行比较分析
+
 ```sql
 CREATE TABLE competitor_products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     analysis_group_id UUID NOT NULL REFERENCES competitor_analysis_groups(id) ON DELETE CASCADE,
-    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE, -- 引用已有产品
     added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
+
+    -- 业务约束
     CONSTRAINT competitor_products_group_product_unique UNIQUE (analysis_group_id, product_id)
 );
 
--- 索引
+-- 索引策略
 CREATE INDEX idx_competitor_products_group_id ON competitor_products(analysis_group_id);
 CREATE INDEX idx_competitor_products_product_id ON competitor_products(product_id);
+CREATE INDEX idx_competitor_products_added ON competitor_products(added_at DESC);
 ```
 
 #### competitor_analysis_results (競品分析結果表)
+存储LLM生成的竞争定位报告和分析结果。
+
+**分析维度：**
+- 主产品 vs 各竞品的价格差异
+- BSR排名差距分析
+- 评分优劣势对比
+- 产品特色对比（从bullet points提取）
+
+**数据结构：**
+- `analysis_data`: 原始比较数据
+- `insights`: LLM生成的洞察分析
+- `recommendations`: 优化建议和策略
+
 ```sql
 CREATE TABLE competitor_analysis_results (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     analysis_group_id UUID NOT NULL REFERENCES competitor_analysis_groups(id) ON DELETE CASCADE,
-    
-    -- 分析結果
-    analysis_data JSONB NOT NULL,
-    insights JSONB,
-    recommendations JSONB,
-    
+
+    -- 分析結果（允许NULL，在LLM处理完成前为空）
+    analysis_data JSONB,          -- 原始比较数据：价格、BSR、评分等（LLM处理完成后填入）
+    insights JSONB,               -- LLM生成的竞争洞察
+    recommendations JSONB,        -- LLM生成的优化建议
+
     -- 系統欄位
     status VARCHAR(20) DEFAULT 'pending',
     started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
     error_message TEXT,
-    
+
     CONSTRAINT analysis_results_status_check CHECK (status IN ('pending', 'processing', 'completed', 'failed'))
 );
 
--- 索引
+-- 索引策略
 CREATE INDEX idx_analysis_results_group_id ON competitor_analysis_results(analysis_group_id);
 CREATE INDEX idx_analysis_results_status ON competitor_analysis_results(status);
 CREATE INDEX idx_analysis_results_completed ON competitor_analysis_results(completed_at DESC);
+CREATE INDEX idx_analysis_results_pending ON competitor_analysis_results(status, started_at) WHERE status = 'pending';
 ```
 
 ### 5. 優化建議相關表
@@ -1387,3 +1424,59 @@ async def main():
     print(f"用戶活動記錄: {len(user_activity)} 條")
     print(f"安全事件記錄: {len(security_events)} 條")
 ```
+
+
+### 補充：缺少的歷史表 (questions.md 要求)
+
+#### product_review_history (評論歷史表)
+```sql
+CREATE TABLE product_review_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    review_count INTEGER DEFAULT 0,
+    average_rating DECIMAL(3,2),
+    five_star_count INTEGER DEFAULT 0,
+    four_star_count INTEGER DEFAULT 0,
+    three_star_count INTEGER DEFAULT 0,
+    two_star_count INTEGER DEFAULT 0,
+    one_star_count INTEGER DEFAULT 0,
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    data_source VARCHAR(50) DEFAULT 'apify'
+);
+
+CREATE INDEX idx_review_history_product_recorded ON product_review_history(product_id, recorded_at DESC);
+CREATE INDEX idx_review_history_recorded ON product_review_history(recorded_at);
+```
+
+#### product_buybox_history (Buy Box歷史表)
+```sql
+CREATE TABLE product_buybox_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    winner_seller VARCHAR(255),
+    winner_price DECIMAL(10,2),
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    is_prime BOOLEAN DEFAULT FALSE,
+    is_fba BOOLEAN DEFAULT FALSE,
+    shipping_info TEXT,
+    availability_text VARCHAR(255),
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    data_source VARCHAR(50) DEFAULT 'apify'
+);
+
+CREATE INDEX idx_buybox_history_product_recorded ON product_buybox_history(product_id, recorded_at DESC);
+CREATE INDEX idx_buybox_history_recorded ON product_buybox_history(recorded_at);
+```
+
+## Questions.md 要求完整支援
+
+✅ **追蹤項目**:
+1. 價格變化 → product_price_history
+2. BSR 趨勢 → product_ranking_history  
+3. 評分與評論數變化 → product_review_history
+4. Buy Box 價格 → product_buybox_history
+
+✅ **異常變化通知**:
+- 價格變動 > 10% → 支援檢測
+- 小類別 BSR 變動 > 30% → 支援檢測
+

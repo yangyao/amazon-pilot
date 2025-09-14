@@ -1,0 +1,427 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Amazon Bestsellers Scraper",
+    "description": "Scrape the Amazon Best Sellers categories and extract details on top 100 most popular items on Amazon. Download product name, price, URL, and thumbnail image. Best used on .com, .co.uk, .de, .fr, .es, and .it domains. Download your data in various formats: HTML table, JSON, CSV, Excel, and more.",
+    "version": "0.0",
+    "x-build-id": "3VOVRm7wQ1Sw4zhta"
+  },
+  "servers": [
+    {
+      "url": "https://api.apify.com/v2"
+    }
+  ],
+  "paths": {
+    "/acts/junglee~amazon-bestsellers/run-sync-get-dataset-items": {
+      "post": {
+        "operationId": "run-sync-get-dataset-items-junglee-amazon-bestsellers",
+        "x-openai-isConsequential": false,
+        "summary": "Executes an Actor, waits for its completion, and returns Actor's dataset items in response.",
+        "tags": [
+          "Run Actor"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/inputSchema"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Enter your Apify token here"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/acts/junglee~amazon-bestsellers/runs": {
+      "post": {
+        "operationId": "runs-sync-junglee-amazon-bestsellers",
+        "x-openai-isConsequential": false,
+        "summary": "Executes an Actor and returns information about the initiated run in response.",
+        "tags": [
+          "Run Actor"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/inputSchema"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Enter your Apify token here"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/runsResponseSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/acts/junglee~amazon-bestsellers/run-sync": {
+      "post": {
+        "operationId": "run-sync-junglee-amazon-bestsellers",
+        "x-openai-isConsequential": false,
+        "summary": "Executes an Actor, waits for completion, and returns the OUTPUT from Key-value store in response.",
+        "tags": [
+          "Run Actor"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/inputSchema"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Enter your Apify token here"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "inputSchema": {
+        "type": "object",
+        "required": [
+          "categoryUrls"
+        ],
+        "properties": {
+          "categoryUrls": {
+            "title": "Amazon category URLs",
+            "type": "array",
+            "description": "Pick one or a few Best Seller categories to scrape. If you enter a top-level category, all subcategories will be scraped (up to max depth). <br> Category URL has to contain <code>Best-Sellers</code>, <code>best-sellers</code> or <code>bestsellers</code>. To see examples of all accepted URLs, <a href='https://apify.com/junglee/amazon-bestsellers#input-parameters' target='_blank' rel='noopener'>check out the readme</a>.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxItemsPerStartUrl": {
+            "title": "Max results (per start URL)",
+            "minimum": 0,
+            "type": "integer",
+            "description": "Enter the maximum number of results you want to scrape per each star URL. Note that Amazon has a hard limit of 100 bestsellers per category."
+          },
+          "depthOfCrawl": {
+            "title": "How many subcategories do you want to scrape?",
+            "minimum": 1,
+            "type": "integer",
+            "description": "Amazon Best Sellers covers 42 main categories. Each of those have at least one more subcategory level. <br> Setting this field to 2 will get you roughly 550 subcategories, each with 100 results.",
+            "default": 1
+          },
+          "language": {
+            "title": "Language",
+            "enum": [
+              "cs",
+              "da",
+              "de",
+              "en",
+              "es",
+              "fr",
+              "nl",
+              "pl",
+              "pt",
+              "sv",
+              "tr",
+              "he",
+              "ar",
+              "mrta",
+              "hi",
+              "bn",
+              "ta",
+              "te",
+              "kn",
+              "ml",
+              "ko",
+              "zh_CN",
+              "zh_TW",
+              "ja"
+            ],
+            "type": "string",
+            "description": "Language to use on Amazon.\n\n**Disclaimer**: each Amazon domain has a different set of supported languages. If you choose a language that is not supported by the domain, the scraper will use the default language of the domain."
+          },
+          "detailedInformation": {
+            "title": "Detailed information",
+            "type": "boolean",
+            "description": "Check this if you want to get the maximum amount of information about individual products. However, choosing this option means the scraper could take longer, since it is extracting more data.",
+            "default": false
+          },
+          "useCaptchaSolver": {
+            "title": "Use Captcha solver (warning: see description)",
+            "type": "boolean",
+            "description": "If enabled the scraper will automatically solve captchas thrown by Amazon. This will decrease the amount of request retries and increase the speed of the scraper.<br><br>***IMPORTANT*** - This option works well only for the `'.com'` Amazon domain, but even for that one Amazon doesn't show a few product fields after solving a captcha (specifically: 'attributes', 'manufacturer attributes', and 'bestseller ranks')",
+            "default": false
+          }
+        }
+      },
+      "runsResponseSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "actId": {
+                "type": "string"
+              },
+              "userId": {
+                "type": "string"
+              },
+              "startedAt": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2025-01-08T00:00:00.000Z"
+              },
+              "finishedAt": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2025-01-08T00:00:00.000Z"
+              },
+              "status": {
+                "type": "string",
+                "example": "READY"
+              },
+              "meta": {
+                "type": "object",
+                "properties": {
+                  "origin": {
+                    "type": "string",
+                    "example": "API"
+                  },
+                  "userAgent": {
+                    "type": "string"
+                  }
+                }
+              },
+              "stats": {
+                "type": "object",
+                "properties": {
+                  "inputBodyLen": {
+                    "type": "integer",
+                    "example": 2000
+                  },
+                  "rebootCount": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "restartCount": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "resurrectCount": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "computeUnits": {
+                    "type": "integer",
+                    "example": 0
+                  }
+                }
+              },
+              "options": {
+                "type": "object",
+                "properties": {
+                  "build": {
+                    "type": "string",
+                    "example": "latest"
+                  },
+                  "timeoutSecs": {
+                    "type": "integer",
+                    "example": 300
+                  },
+                  "memoryMbytes": {
+                    "type": "integer",
+                    "example": 1024
+                  },
+                  "diskMbytes": {
+                    "type": "integer",
+                    "example": 2048
+                  }
+                }
+              },
+              "buildId": {
+                "type": "string"
+              },
+              "defaultKeyValueStoreId": {
+                "type": "string"
+              },
+              "defaultDatasetId": {
+                "type": "string"
+              },
+              "defaultRequestQueueId": {
+                "type": "string"
+              },
+              "buildNumber": {
+                "type": "string",
+                "example": "1.0.0"
+              },
+              "containerUrl": {
+                "type": "string"
+              },
+              "usage": {
+                "type": "object",
+                "properties": {
+                  "ACTOR_COMPUTE_UNITS": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "DATASET_READS": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "DATASET_WRITES": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "KEY_VALUE_STORE_READS": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "KEY_VALUE_STORE_WRITES": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "KEY_VALUE_STORE_LISTS": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "REQUEST_QUEUE_READS": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "REQUEST_QUEUE_WRITES": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "DATA_TRANSFER_INTERNAL_GBYTES": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "DATA_TRANSFER_EXTERNAL_GBYTES": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "PROXY_RESIDENTIAL_TRANSFER_GBYTES": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "PROXY_SERPS": {
+                    "type": "integer",
+                    "example": 0
+                  }
+                }
+              },
+              "usageTotalUsd": {
+                "type": "number",
+                "example": 0.00005
+              },
+              "usageUsd": {
+                "type": "object",
+                "properties": {
+                  "ACTOR_COMPUTE_UNITS": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "DATASET_READS": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "DATASET_WRITES": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "KEY_VALUE_STORE_READS": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "KEY_VALUE_STORE_WRITES": {
+                    "type": "number",
+                    "example": 0.00005
+                  },
+                  "KEY_VALUE_STORE_LISTS": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "REQUEST_QUEUE_READS": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "REQUEST_QUEUE_WRITES": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "DATA_TRANSFER_INTERNAL_GBYTES": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "DATA_TRANSFER_EXTERNAL_GBYTES": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "PROXY_RESIDENTIAL_TRANSFER_GBYTES": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "PROXY_SERPS": {
+                    "type": "integer",
+                    "example": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

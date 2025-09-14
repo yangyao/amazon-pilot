@@ -39,14 +39,18 @@ func (n *Notification) MarkAsRead() {
 	n.ReadAt = &now
 }
 
-// ChangeEvent 变更事件表 (分区表)
-type ChangeEvent struct {
+// AnomalyEvent 异常事件表 (分区表)
+// 用于记录产品数据异常变化（价格变动>10%、BSR变动>30%等）
+type AnomalyEvent struct {
 	ID               string         `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
 	ProductID        string         `gorm:"not null;type:uuid" json:"product_id"`
+	ASIN             string         `gorm:"not null;size:20" json:"asin"`
 	EventType        string         `gorm:"not null;size:50" json:"event_type"`
 	OldValue         *float64       `gorm:"type:decimal(15,2)" json:"old_value,omitempty"`
 	NewValue         *float64       `gorm:"type:decimal(15,2)" json:"new_value,omitempty"`
 	ChangePercentage *float64       `gorm:"type:decimal(10,2)" json:"change_percentage,omitempty"`
+	Threshold        *float64       `gorm:"type:decimal(10,2)" json:"threshold,omitempty"`
+	Severity         string         `gorm:"not null;size:20;default:info" json:"severity"`
 	Metadata         datatypes.JSON `gorm:"type:jsonb" json:"metadata,omitempty"`
 	Processed        bool           `gorm:"default:false" json:"processed"`
 	ProcessedAt      *time.Time     `json:"processed_at,omitempty"`
@@ -57,13 +61,13 @@ type ChangeEvent struct {
 }
 
 // TableName 表名 (分区表)
-func (ChangeEvent) TableName() string {
-	return "change_events"
+func (AnomalyEvent) TableName() string {
+	return "product_anomaly_events"
 }
 
 // MarkAsProcessed 标记为已处理
-func (ce *ChangeEvent) MarkAsProcessed() {
+func (ae *AnomalyEvent) MarkAsProcessed() {
 	now := time.Now()
-	ce.Processed = true
-	ce.ProcessedAt = &now
+	ae.Processed = true
+	ae.ProcessedAt = &now
 }

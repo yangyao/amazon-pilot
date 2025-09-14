@@ -39,7 +39,7 @@ while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
         frontend)
             PORT=3000
             ;;
-        asynq-monitor)
+        asynq-dashboard)
             PORT=5555
             ;;
         *)

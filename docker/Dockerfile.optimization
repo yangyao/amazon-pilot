@@ -35,6 +35,9 @@ RUN adduser -D -s /bin/sh appuser
 COPY --from=builder /app/optimization-service /app/optimization-service
 COPY --from=builder /app/cmd/optimization/etc /app/etc
 
+# 复制环境配置文件 (敏感信息)
+COPY .env /app/.env
+
 # 设定权限
 RUN chown -R appuser:appuser /app
 USER appuser
@@ -47,4 +50,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8004/health || exit 1
 
 # 启动应用
+WORKDIR /app
 CMD ["/app/optimization-service", "-f", "/app/etc/optimization-api.yaml"]

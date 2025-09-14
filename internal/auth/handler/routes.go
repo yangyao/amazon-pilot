@@ -43,7 +43,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 			}...,
 		),
-		rest.WithPrefix("/auth"),
+		rest.WithPrefix("/api/auth"),
 	)
 
 	server.AddRoutes(
@@ -63,6 +63,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
-		rest.WithPrefix("/auth"),
+		rest.WithPrefix("/api/auth"),
 	)
 }

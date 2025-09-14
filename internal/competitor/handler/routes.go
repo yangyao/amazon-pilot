@@ -28,7 +28,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 			}...,
 		),
-		rest.WithPrefix("/competitor"),
+		rest.WithPrefix("/api/competitor"),
 	)
 
 	server.AddRoutes(
@@ -55,9 +55,14 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/analysis/:analysis_id/competitors",
 					Handler: addCompetitorHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/analysis/:analysis_id/generate-report",
+					Handler: generateReportHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
-		rest.WithPrefix("/competitor"),
+		rest.WithPrefix("/api/competitor"),
 	)
 }

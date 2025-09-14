@@ -3,6 +3,7 @@ package workers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -11,8 +12,8 @@ import (
 	"amazonpilot/internal/pkg/apify"
 	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
-	"amazonpilot/internal/pkg/monitor"
 	"amazonpilot/internal/pkg/queue"
+	"amazonpilot/internal/pkg/tasks"
 
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -60,12 +61,12 @@ func (ws *WorkerService) HandleUpdateProduct(ctx context.Context, t *asynq.Task)
 	if apifyToken == "" {
 		// 在没有API token的情况下使用模拟数据 (开发环境)
 		ws.logger.LogInfo(ctx, "No Apify token found, using simulated data")
-		return ws.handleProductUpdateSimulated(ctx, payload, product)
+		return errors.New("APIFY_API_TOKEN not set")
 	}
 
 	// 使用真实Apify API获取数据
 	apifyClient := apify.NewClient(apifyToken)
-	
+
 	// 调用Apify API获取真实产品数据
 	products, err := apifyClient.FetchProductData(ctx, []string{product.ASIN}, 5*time.Minute)
 	if err != nil {
@@ -74,7 +75,7 @@ func (ws *WorkerService) HandleUpdateProduct(ctx context.Context, t *asynq.Task)
 			"error", err.Error(),
 		)
 		// 如果API失败，降级为模拟数据
-		return ws.handleProductUpdateSimulated(ctx, payload, product)
+		return err
 	}
 
 	if len(products) == 0 {
@@ -156,7 +157,7 @@ func (ws *WorkerService) handleProductUpdateSimulated(ctx context.Context, paylo
 	ws.logger.LogInfo(ctx, "Using simulated product data for development")
 
 	now := time.Now()
-	
+
 	// 模拟价格波动 (±5%)
 	priceVariation := 0.95 + (float64(now.UnixNano()%10) * 0.01)
 	newPrice := product.CurrentPrice * priceVariation

@@ -30,7 +30,7 @@ case $choice in
         echo "5. notification-service"
         echo "6. asynq-worker"
         echo "7. asynq-scheduler"
-        echo "8. asynq-monitor"
+        echo "8. asynq-dashboard"
         echo "9. frontend"
         echo "10. prometheus"
         echo "11. grafana"
@@ -45,7 +45,7 @@ case $choice in
             5) docker-compose logs --tail=100 notification-service ;;
             6) docker-compose logs --tail=100 asynq-worker ;;
             7) docker-compose logs --tail=100 asynq-scheduler ;;
-            8) docker-compose logs --tail=100 asynq-monitor ;;
+            8) docker-compose logs --tail=100 asynq-dashboard ;;
             9) docker-compose logs --tail=100 frontend ;;
             10) docker-compose logs --tail=100 prometheus ;;
             11) docker-compose logs --tail=100 grafana ;;

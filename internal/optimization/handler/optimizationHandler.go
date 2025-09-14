@@ -7,20 +7,21 @@ import (
 	"amazonpilot/internal/optimization/svc"
 	"amazonpilot/internal/optimization/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
+	"amazonpilot/internal/pkg/utils"
 )
 
 func OptimizationHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.Request
+		var req types.GetOptimizationRequest
 		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			utils.HandleError(w, err)
 			return
 		}
 
 		l := logic.NewOptimizationLogic(r.Context(), svcCtx)
 		resp, err := l.Optimization(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			utils.HandleError(w, err)
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

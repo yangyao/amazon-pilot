@@ -108,3 +108,49 @@ type RankingHistory struct {
 func (RankingHistory) TableName() string {
 	return "product_ranking_history"
 }
+
+// ReviewHistory 评论历史记录
+type ReviewHistory struct {
+	ID              string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ProductID       string    `gorm:"not null;type:uuid" json:"product_id"`
+	ReviewCount     int       `gorm:"default:0" json:"review_count"`
+	AverageRating   *float64  `gorm:"type:decimal(3,2)" json:"average_rating,omitempty"`
+	FiveStarCount   int       `gorm:"default:0" json:"five_star_count"`
+	FourStarCount   int       `gorm:"default:0" json:"four_star_count"`
+	ThreeStarCount  int       `gorm:"default:0" json:"three_star_count"`
+	TwoStarCount    int       `gorm:"default:0" json:"two_star_count"`
+	OneStarCount    int       `gorm:"default:0" json:"one_star_count"`
+	RecordedAt      time.Time `gorm:"default:now()" json:"recorded_at"`
+	DataSource      string    `gorm:"default:apify;size:50" json:"data_source"`
+
+	// 关联
+	Product Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+}
+
+// TableName 表名
+func (ReviewHistory) TableName() string {
+	return "product_review_history"
+}
+
+// BuyBoxHistory Buy Box历史记录
+type BuyBoxHistory struct {
+	ID               string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ProductID        string    `gorm:"not null;type:uuid" json:"product_id"`
+	WinnerSeller     *string   `gorm:"size:255" json:"winner_seller,omitempty"`
+	WinnerPrice      *float64  `gorm:"type:decimal(10,2)" json:"winner_price,omitempty"`
+	Currency         string    `gorm:"not null;default:USD;size:3" json:"currency"`
+	IsPrime          bool      `gorm:"default:false" json:"is_prime"`
+	IsFBA            bool      `gorm:"default:false" json:"is_fba"`
+	ShippingInfo     *string   `gorm:"type:text" json:"shipping_info,omitempty"`
+	AvailabilityText *string   `gorm:"size:255" json:"availability_text,omitempty"`
+	RecordedAt       time.Time `gorm:"default:now()" json:"recorded_at"`
+	DataSource       string    `gorm:"default:apify;size:50" json:"data_source"`
+
+	// 关联
+	Product Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+}
+
+// TableName 表名
+func (BuyBoxHistory) TableName() string {
+	return "product_buybox_history"
+}

@@ -13,12 +13,12 @@ type CompetitorAnalysisGroup struct {
 	Name            string         `gorm:"not null;size:255" json:"name"`
 	Description     *string        `gorm:"type:text" json:"description,omitempty"`
 	MainProductID   string         `gorm:"not null;type:uuid" json:"main_product_id"`
-	UpdateFrequency string         `gorm:"default:daily;size:20" json:"update_frequency"`
 	AnalysisMetrics datatypes.JSON `gorm:"type:jsonb;default:'[\"price\", \"bsr\", \"rating\", \"features\"]'" json:"analysis_metrics"`
 	IsActive        bool           `gorm:"default:true" json:"is_active"`
 	CreatedAt       time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt       time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 	LastAnalysisAt  *time.Time     `json:"last_analysis_at,omitempty"`
+	NextAnalysisAt  *time.Time     `json:"next_analysis_at,omitempty"`
 
 	// 关联
 	User            User                        `gorm:"foreignKey:UserID" json:"user,omitempty"`

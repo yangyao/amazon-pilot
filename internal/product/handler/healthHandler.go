@@ -6,6 +6,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 	"amazonpilot/internal/product/logic"
 	"amazonpilot/internal/product/svc"
+	"amazonpilot/internal/pkg/utils"
 )
 
 func healthHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
@@ -13,7 +14,7 @@ func healthHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewHealthLogic(r.Context(), svcCtx)
 		resp, err := l.Health()
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			utils.HandleError(w, err)
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

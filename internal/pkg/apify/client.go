@@ -43,22 +43,18 @@ type ProductData struct {
 	ScrapedAt     time.Time `json:"scrapedAt"`
 }
 
-// RunInput Apify Actor运行输入
+// RunInput Apify Actor运行输入 (简化为仅必需字段)
 type RunInput struct {
-	ASINs               []string `json:"asins"`
-	Country             string   `json:"country"`
-	MaxItems            int      `json:"maxItems"`
-	IncludeReviews      bool     `json:"includeReviews"`
-	IncludeDescription  bool     `json:"includeDescription"`
-	IncludeImages       bool     `json:"includeImages"`
-	IncludeBuyBox       bool     `json:"includeBuyBox"`
+	URLs []string `json:"urls"`
 }
 
 // RunResponse Apify Actor运行响应
 type RunResponse struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
-	StartedAt time.Time `json:"startedAt"`
+	Data struct {
+		ID        string    `json:"id"`
+		Status    string    `json:"status"`
+		StartedAt time.Time `json:"startedAt"`
+	} `json:"data"`
 }
 
 // NewClient 创建Apify客户端
@@ -75,17 +71,17 @@ func NewClient(apiToken string) *Client {
 
 // RunAmazonProductActor 运行Amazon产品数据抓取Actor
 func (c *Client) RunAmazonProductActor(ctx context.Context, asins []string) (*RunResponse, error) {
-	// 使用官方的Amazon Product Details Actor
-	actorID := "junglee/amazon-product-details"
+	// 使用经过验证的Amazon Product Details Actor (使用actor ID而不是name)
+	actorID := "7KgyOHHEiPEcilZXM"
+	
+	// 将ASIN转换为完整的Amazon URL
+	urls := make([]string, len(asins))
+	for i, asin := range asins {
+		urls[i] = fmt.Sprintf("https://www.amazon.com/dp/%s", asin)
+	}
 	
 	input := RunInput{
-		ASINs:               asins,
-		Country:             "US",
-		MaxItems:            len(asins),
-		IncludeReviews:      true,
-		IncludeDescription:  true,
-		IncludeImages:       true,
-		IncludeBuyBox:       true,
+		URLs: urls,
 	}
 
 	slog.Info("Starting Apify actor run",
@@ -94,7 +90,7 @@ func (c *Client) RunAmazonProductActor(ctx context.Context, asins []string) (*Ru
 		"asins", asins,
 	)
 
-	// 构建请求
+	// 构建请求 - 使用正确的Apify API格式
 	url := fmt.Sprintf("%s/acts/%s/runs", c.baseURL, actorID)
 	
 	inputBytes, err := json.Marshal(input)
@@ -127,14 +123,14 @@ func (c *Client) RunAmazonProductActor(ctx context.Context, asins []string) (*Ru
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	c.logger.LogBusinessOperation(ctx, "apify_actor_started", "apify_run", runResp.ID, "success",
+	c.logger.LogBusinessOperation(ctx, "apify_actor_started", "apify_run", runResp.Data.ID, "success",
 		"actor_id", actorID,
 		"asins_count", len(asins),
 	)
 
 	slog.Info("Apify actor run started",
-		"run_id", runResp.ID,
-		"status", runResp.Status,
+		"run_id", runResp.Data.ID,
+		"status", runResp.Data.Status,
 		"asins", asins,
 	)
 
@@ -265,33 +261,69 @@ func (c *Client) getRunStatus(ctx context.Context, runID string) (string, error)
 	return runData.Data.Status, nil
 }
 
-// FetchProductData 完整的产品数据获取流程
+// FetchProductData 同步获取产品数据 (使用run-sync-get-dataset-items API)
 func (c *Client) FetchProductData(ctx context.Context, asins []string, timeout time.Duration) ([]ProductData, error) {
-	slog.Info("Starting complete product data fetch",
+	slog.Info("Starting sync product data fetch",
 		"asins_count", len(asins),
-		"timeout", timeout,
 	)
 
-	// 1. 启动Actor
-	runResp, err := c.RunAmazonProductActor(ctx, asins)
+	// 将ASIN转换为完整的Amazon URL
+	urls := make([]string, len(asins))
+	for i, asin := range asins {
+		urls[i] = fmt.Sprintf("https://www.amazon.com/dp/%s", asin)
+	}
+
+	input := RunInput{
+		URLs: urls,
+	}
+
+	inputBytes, err := json.Marshal(input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start actor: %w", err)
+		return nil, fmt.Errorf("failed to marshal input: %w", err)
 	}
 
-	// 2. 等待完成
-	if err := c.WaitForRunCompletion(ctx, runResp.ID, timeout); err != nil {
-		return nil, fmt.Errorf("actor run failed: %w", err)
-	}
+	// 使用同步API直接获取数据
+	actorName := "axesso_data~amazon-product-details-scraper"
+	url := fmt.Sprintf("%s/acts/%s/run-sync-get-dataset-items?token=%s", c.baseURL, actorName, c.apiToken)
 
-	// 3. 获取结果
-	products, err := c.GetRunResults(ctx, runResp.ID)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(inputBytes))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get results: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	c.logger.LogBusinessOperation(ctx, "product_data_fetch_complete", "apify", runResp.ID, "success",
+	req.Header.Set("Content-Type", "application/json")
+
+	// 发送同步请求
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var products []ProductData
+	if err := json.NewDecoder(resp.Body).Decode(&products); err != nil {
+		return nil, fmt.Errorf("failed to decode results: %w", err)
+	}
+
+	// 设置抓取时间
+	now := time.Now()
+	for i := range products {
+		products[i].ScrapedAt = now
+	}
+
+	c.logger.LogBusinessOperation(ctx, "product_data_fetch_complete", "apify", "sync", "success",
 		"asins_requested", len(asins),
 		"products_returned", len(products),
+	)
+
+	slog.Info("Sync product data fetch completed",
+		"asins_count", len(asins),
+		"products_count", len(products),
 	)
 
 	return products, nil

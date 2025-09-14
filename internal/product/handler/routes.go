@@ -28,12 +28,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 			}...,
 		),
+		rest.WithPrefix("/api/product"),
 	)
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
 			[]rest.Middleware{serverCtx.RateLimitMiddleware},
 			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/fetch-amazon-product-data",
+					Handler: fetchAmazonProductDataHandler(serverCtx),
+				},
 				{
 					Method:  http.MethodGet,
 					Path:    "/products/:product_id",
@@ -45,9 +51,19 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: getProductHistoryHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodPost,
+					Path:    "/products/:product_id/refresh",
+					Handler: refreshProductDataHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodDelete,
 					Path:    "/products/:product_id/track",
 					Handler: stopProductTrackingHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/products/anomaly-events",
+					Handler: getAnomalyEventsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodPost,
@@ -62,5 +78,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			}...,
 		),
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+		rest.WithPrefix("/api/product"),
 	)
 }

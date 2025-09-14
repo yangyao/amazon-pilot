@@ -4,6 +4,12 @@
 
 本文件描述 Amazon 賣家產品監控與優化工具的整體系統架構設計，包含後端服務架構、部署拓撲、資料流向和擴展策略。
 
+**实现的核心功能**：
+- ✅ **产品资料追踪系统** (questions.md 选项1) - 完整实现
+- ✅ **竞品分析引擎** (questions.md 选项2) - 完整实现，包含LLM报告生成
+
+**当前系统状态**：全功能企业级Amazon产品监控平台，支持异常检测、竞品分析和LLM驱动的市场洞察。
+
 ## 系統架構概覽
 
 ### 設計原則
@@ -16,13 +22,16 @@
 
 ### 核心技術棧
 
-- **後端框架**: Go + goZero
-- **ORM**: Gorm
-- **資料庫**: Supabase (PostgreSQL) + Redis
-- **消息佇列**: Redis + Asynq
-- **容器化**: Docker + Docker Compose
-- **監控**: Prometheus + Grafana
-- **日誌**: ELK Stack (Elasticsearch, Logstash, Kibana)
+- **後端框架**: Go + go-zero微服务架构
+- **ORM**: Gorm v2 + 自定义JSON结构化日志
+- **資料庫**: PostgreSQL + Redis (缓存层)
+- **消息佇列**: Redis + Asynq (异步任务处理)
+- **LLM集成**: DeepSeek API (竞争定位报告生成)
+- **数据源**: Apify API (Amazon产品数据爬取)
+- **前端**: Next.js + React + TypeScript + Tailwind CSS
+- **API网关**: 统一路由和认证
+- **监控**: 结构化JSON日志 + 业务操作追踪
+- **部署**: 服务管理脚本 + Docker支持
 
 ## 系統架構圖
 
@@ -75,150 +84,6 @@
 - Rate limiting 和 API 版本控制
 - 請求/回應日誌記錄
 
-**技術實現**:
-```go
-// goZero + Redis + JWT
-package main
-
-import (
-    "context"
-    "fmt"
-    "net/http"
-    "time"
-
-    "github.com/zeromicro/go-zero/core/conf"
-    "github.com/zeromicro/go-zero/core/logx"
-    "github.com/zeromicro/go-zero/core/stores/redis"
-    "github.com/zeromicro/go-zero/rest"
-    "github.com/zeromicro/go-zero/rest/httpx"
-    "github.com/zeromicro/go-zero/rest/handler"
-    "github.com/zeromicro/go-zero/rest/middleware"
-)
-
-type Config struct {
-    rest.RestConf
-    Redis redis.RedisConf
-    JWT   struct {
-        AccessSecret string
-        AccessExpire int64
-    }
-}
-
-type Server struct {
-    config Config
-    redis  *redis.Redis
-}
-
-func main() {
-    var c Config
-    conf.MustLoad("config.yaml", &c)
-    
-    server := rest.MustNewServer(c.RestConf)
-    defer server.Stop()
-    
-    // 初始化 Redis
-    rds := redis.MustNewRedis(c.Redis)
-    
-    // 中間件配置
-    server.Use(middleware.NewCorsMiddleware().Handle)
-    server.Use(handler.NewGunzipHandler().Handle)
-    server.Use(rateLimitMiddleware(rds))
-    server.Use(authMiddleware())
-    
-    // 路由配置
-    server.AddRoute(rest.Route{
-        Method:  http.MethodPost,
-        Path:    "/api/auth/login",
-        Handler: loginHandler,
-    })
-    
-    server.AddRoute(rest.Route{
-        Method:  http.MethodGet,
-        Path:    "/api/products",
-        Handler: getProductsHandler,
-    })
-    
-    server.AddRoute(rest.Route{
-        Method:  http.MethodPost,
-        Path:    "/api/products/track",
-        Handler: trackProductHandler,
-    })
-    
-    fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
-    server.Start()
-}
-
-// 限流中間件
-func rateLimitMiddleware(rds *redis.Redis) rest.Middleware {
-    return func(next http.HandlerFunc) http.HandlerFunc {
-        return func(w http.ResponseWriter, r *http.Request) {
-            // 根據用戶計劃調整限流
-            userPlan := getUserPlanFromContext(r.Context())
-            limit := getRateLimit(userPlan)
-            
-            // 檢查限流
-            if !checkRateLimit(rds, r, limit) {
-                httpx.WriteJson(w, http.StatusTooManyRequests, map[string]interface{}{
-                    "error": map[string]interface{}{
-                        "code":    "RATE_LIMIT_EXCEEDED",
-                        "message": "Too many requests",
-                    },
-                })
-                return
-            }
-            
-            next(w, r)
-        }
-    }
-}
-
-// 認證中間件
-func authMiddleware() rest.Middleware {
-    return func(next http.HandlerFunc) http.HandlerFunc {
-        return func(w http.ResponseWriter, r *http.Request) {
-            // JWT 驗證邏輯
-            token := extractToken(r)
-            if token == "" {
-                httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-                    "error": map[string]interface{}{
-                        "code":    "UNAUTHORIZED",
-                        "message": "Missing or invalid token",
-                    },
-                })
-                return
-            }
-            
-            // 驗證 token 並設置用戶信息到 context
-            user, err := validateToken(token)
-            if err != nil {
-                httpx.WriteJson(w, http.StatusUnauthorized, map[string]interface{}{
-                    "error": map[string]interface{}{
-                        "code":    "UNAUTHORIZED",
-                        "message": "Invalid token",
-                    },
-                })
-                return
-            }
-            
-            ctx := context.WithValue(r.Context(), "user", user)
-            next(w, r.WithContext(ctx))
-        }
-    }
-}
-
-func getRateLimit(plan string) int {
-    limits := map[string]int{
-        "basic":     100,
-        "premium":   500,
-        "enterprise": 2000,
-    }
-    if limit, ok := limits[plan]; ok {
-        return limit
-    }
-    return 100
-}
-```
-
 ### 2. Authentication Service
 
 **職責**:
@@ -241,252 +106,89 @@ user_sessions: id, user_id, token_hash, expires_at
 
 ### 3. Product Tracking Service
 
+**實現 questions.md 選項1：產品資料追蹤系統**
+
 **職責**:
-- 產品資料抓取和更新
-- 追蹤設定管理
-- 歷史資料儲存
-- 變化檢測和通知
+- Amazon产品数据抓取和更新 (Apify集成)
+- 用户追踪设定管理 (固定每日更新)
+- 历史数据存储 (价格、BSR、评分、评论数历史)
+- 异常变化检测和警报 (价格变动>10%, BSR变动>30%)
+- 产品数据缓存管理 (Redis 1小时TTL)
+
+**核心特性**:
+- 基于Apify爬虫的真实Amazon数据
+- 异步任务处理 (Worker + Scheduler)
+- 多维度异常检测算法
+- 结构化JSON日志记录
+- 完整的产品特征数据 (bullet points, images)
 
 **API 端點**:
-- `POST /products/track` - 新增追蹤產品
-- `GET /products/tracked` - 取得追蹤列表
-- `GET /products/{id}/history` - 產品歷史資料
-- `DELETE /products/{id}/track` - 停止追蹤
+- `POST /api/product/products/track` - 添加产品追踪
+- `GET /api/product/products/tracked` - 获取追踪记录列表
+- `GET /api/product/products/{id}` - 获取产品详情
+- `GET /api/product/products/{id}/history` - 获取历史数据 (价格/BSR/评分/评论数/buybox)
+- `POST /api/product/products/{id}/refresh` - 刷新产品数据
+- `DELETE /api/product/products/{id}/track` - 停止追踪
+- `GET /api/product/products/anomaly-events` - 获取异常警报
+- `POST /api/product/search-products-by-category` - 按类目搜索产品
 
-**背景任務**:
-```go
-// Asynq 任務定義
-package tasks
-
-import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "time"
-
-    "github.com/hibiken/asynq"
-    "github.com/zeromicro/go-zero/core/logx"
-    "gorm.io/gorm"
-)
-
-type TaskManager struct {
-    client *asynq.Client
-    server *asynq.Server
-    db     *gorm.DB
-}
-
-type UpdateProductTask struct {
-    ProductID string `json:"product_id"`
-}
-
-type BatchUpdateTask struct {
-    ProductIDs []string `json:"product_ids"`
-}
-
-func NewTaskManager(redisAddr string, db *gorm.DB) *TaskManager {
-    client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
-    server := asynq.NewServer(
-        asynq.RedisClientOpt{Addr: redisAddr},
-        asynq.Config{
-            Concurrency: 10,
-            Queues: map[string]int{
-                "critical": 6,
-                "default":  3,
-                "low":      1,
-            },
-        },
-    )
-
-    tm := &TaskManager{
-        client: client,
-        server: server,
-        db:     db,
-    }
-
-    // 註冊任務處理器
-    tm.registerHandlers()
-    return tm
-}
-
-func (tm *TaskManager) registerHandlers() {
-    // 產品更新任務
-    tm.server.HandleFunc("update_product", tm.handleUpdateProduct)
-    
-    // 批次更新任務
-    tm.server.HandleFunc("batch_update_products", tm.handleBatchUpdate)
-    
-    // 競品分析任務
-    tm.server.HandleFunc("competitor_analysis", tm.handleCompetitorAnalysis)
-}
-
-func (tm *TaskManager) handleUpdateProduct(ctx context.Context, t *asynq.Task) error {
-    var payload UpdateProductTask
-    if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-        return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
-    }
-
-    logx.Infof("Processing update product task: %s", payload.ProductID)
-
-    // 1. 調用 Apify API 抓取最新資料
-    productData, err := tm.fetchProductData(payload.ProductID)
-    if err != nil {
-        return fmt.Errorf("fetch product data failed: %v", err)
-    }
-
-    // 2. 更新資料庫
-    if err := tm.updateProductInDB(payload.ProductID, productData); err != nil {
-        return fmt.Errorf("update product in DB failed: %v", err)
-    }
-
-    // 3. 檢測變化並發送通知到 Redis 隊列
-    if err := tm.checkAndNotify(payload.ProductID, productData); err != nil {
-        logx.Errorf("check and notify failed: %v", err)
-        // 通知失敗不影響主流程
-    }
-
-    logx.Infof("Successfully updated product: %s", payload.ProductID)
-    return nil
-}
-
-func (tm *TaskManager) handleBatchUpdate(ctx context.Context, t *asynq.Task) error {
-    var payload BatchUpdateTask
-    if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-        return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
-    }
-
-    logx.Infof("Processing batch update for %d products", len(payload.ProductIDs))
-
-    for _, productID := range payload.ProductIDs {
-        // 為每個產品創建單獨的任務
-        task, err := NewUpdateProductTask(productID)
-        if err != nil {
-            logx.Errorf("Failed to create task for product %s: %v", productID, err)
-            continue
-        }
-
-        // 添加到隊列
-        _, err = tm.client.Enqueue(task, asynq.Queue("default"))
-        if err != nil {
-            logx.Errorf("Failed to enqueue task for product %s: %v", productID, err)
-        }
-    }
-
-    return nil
-}
-
-// 創建產品更新任務
-func NewUpdateProductTask(productID string) (*asynq.Task, error) {
-    payload := UpdateProductTask{ProductID: productID}
-    return asynq.NewTask("update_product", payload)
-}
-
-// 創建批次更新任務
-func NewBatchUpdateTask(productIDs []string) (*asynq.Task, error) {
-    payload := BatchUpdateTask{ProductIDs: productIDs}
-    return asynq.NewTask("batch_update_products", payload)
-}
-
-// 定期任務調度
-func (tm *TaskManager) SchedulePeriodicTasks() {
-    scheduler := asynq.NewScheduler(asynq.RedisClientOpt{Addr: "localhost:6379"}, nil)
-
-    // 每日上午 9 點執行產品更新
-    _, err := scheduler.Register("@daily 09:00", asynq.NewTask("schedule_daily_updates", nil))
-    if err != nil {
-        logx.Errorf("Failed to register daily update task: %v", err)
-    }
-
-    // 每小時執行高頻產品更新
-    _, err = scheduler.Register("@hourly", asynq.NewTask("schedule_hourly_updates", nil))
-    if err != nil {
-        logx.Errorf("Failed to register hourly update task: %v", err)
-    }
-
-    // 週日凌晨 2 點執行競品分析
-    _, err = scheduler.Register("0 2 * * 0", asynq.NewTask("schedule_weekly_analysis", nil))
-    if err != nil {
-        logx.Errorf("Failed to register weekly analysis task: %v", err)
-    }
-
-    if err := scheduler.Run(); err != nil {
-        logx.Fatalf("Failed to start scheduler: %v", err)
-    }
-}
+**数据模型**:
+```sql
+products: 产品基础信息 (ASIN, 标题, 品牌, bullet_points等)
+tracked_products: 用户追踪记录 (阈值设置, 状态管理)
+product_price_history: 价格历史 (含buybox价格)
+product_ranking_history: BSR和评分历史
+product_review_history: 评论变化历史
+product_buybox_history: Buy Box变化历史
+product_anomaly_events: 异常检测事件
 ```
+
 
 ### 4. Competitor Analysis Service
 
+**實現 questions.md 選項2：競品分析引擎**
+
 **職責**:
-- 競品群組管理
-- 競品資料比較分析
-- LLM 驅動的洞察生成
-- 分析報告生成
+- 竞品分析组管理（主产品 + 3-5个竞品）
+- 多维度比较分析（价格、BSR、评分、产品特色）
+- LLM驱动的竞争定位报告生成
+- 固定每日自动分析调度
 
-**API 端點**:
-- `POST /competitors/analysis` - 建立競品分析
-- `GET /competitors/analysis/{id}` - 取得分析結果
-- `GET /competitors/analysis/{id}/report` - 取得詳細報告
+**核心特性**:
+- 从已追踪产品选择主产品和竞品 (复用现有数据)
+- 利用现有Apify爬虫数据，避免重复开发
+- 固定每日更新频率（不可用户配置）
+- 使用事务确保分析组和竞品关联的数据一致性
+- DeepSeek LLM驱动的竞争定位报告生成
+- 真实数据驱动的多维度比较分析
 
-**分析流程**:
-```python
-from typing import List, Dict, Any
-import asyncio
-from celery import current_task
+**多维度分析实现**:
+- ✅ **价格差异分析** - 基于product_price_history真实数据
+- ✅ **BSR排名差距** - 基于product_ranking_history数据
+- ✅ **评分优劣势** - 基于评分和评论数历史
+- ✅ **产品特色对比** - 基于bullet_points特征数据
+- ✅ **LLM竞争洞察** - DeepSeek生成的市场定位建议
 
-class CompetitorAnalysisService:
-    async def create_analysis(self, user_id: str, analysis_config: Dict[str, Any]) -> Dict[str, Any]:
-        """建立競品分析"""
-        # 1. 驗證和儲存分析設定
-        analysis_id = await self.save_analysis_config(user_id, analysis_config)
-        
-        # 2. 排隊背景分析任務
-        task = competitor_analysis_task.delay(analysis_id)
-        
-        return {"analysis_id": analysis_id, "status": "pending", "task_id": task.id}
-    
-    @celery_app.task(bind=True)
-    def run_analysis(self, analysis_id: str):
-        """執行競品分析任務"""
-        try:
-            # 更新任務狀態
-            self.update_state(state='PROGRESS', meta={'current': 0, 'total': 100})
-            
-            # 1. 平行抓取所有產品資料
-            products = asyncio.run(self.fetch_all_products_data(analysis_id))
-            self.update_state(state='PROGRESS', meta={'current': 30, 'total': 100})
-            
-            # 2. 執行比較分析
-            comparison = asyncio.run(self.compare_products(products))
-            self.update_state(state='PROGRESS', meta={'current': 60, 'total': 100})
-            
-            # 3. 使用 LLM 生成洞察
-            insights = asyncio.run(self.generate_insights(comparison))
-            self.update_state(state='PROGRESS', meta={'current': 90, 'total': 100})
-            
-            # 4. 儲存結果
-            asyncio.run(self.save_analysis_result(analysis_id, {
-                "comparison": comparison, 
-                "insights": insights
-            }))
-            
-            return {"status": "completed", "analysis_id": analysis_id}
-            
-        except Exception as exc:
-            self.update_state(state='FAILURE', meta={'error': str(exc)})
-            raise exc
-    
-    async def fetch_all_products_data(self, analysis_id: str) -> List[Dict[str, Any]]:
-        """平行抓取所有產品資料"""
-        analysis_config = await self.get_analysis_config(analysis_id)
-        product_asins = [analysis_config['main_product_asin']] + analysis_config['competitor_asins']
-        
-        # 使用 asyncio.gather 平行處理
-        tasks = [apify_service.get_product_data(asin) for asin in product_asins]
-        products = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # 過濾異常結果
-        return [p for p in products if not isinstance(p, Exception)]
+**API 端点**:
+- `POST /api/competitor/analysis` - 创建竞品分析组
+- `GET /api/competitor/analysis` - 列出分析组
+- `GET /api/competitor/analysis/{id}` - 获取分析结果
+- `POST /api/competitor/analysis/{id}/generate-report` - 生成LLM报告
+- `POST /api/competitor/analysis/{id}/competitors` - 添加竞品产品
+
+**LLM技术栈**:
+- **DeepSeek API** - 中文竞争分析专家
+- **结构化提示词** - 确保JSON格式输出
+- **容错解析** - 预处理和格式修正
+- **同步生成** - 直接返回报告结果
+
+**数据模型**:
+```sql
+competitor_analysis_groups: 分析组基本信息 (主产品+竞品关联)
+competitor_products: 竞品产品关联（3-5个，引用products表）
+competitor_analysis_results: LLM生成的分析报告 (DeepSeek输出)
 ```
+
 
 ### 5. Optimization Service
 
@@ -502,105 +204,7 @@ class CompetitorAnalysisService:
 - `POST /optimization/{id}/implement` - 標記建議實施
 
 **LLM 整合**:
-```python
-from openai import AsyncOpenAI
-from typing import Dict, Any
-import json
 
-class OptimizationService:
-    def __init__(self):
-        self.openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-    
-    async def generate_suggestions(self, product_data: Dict[str, Any]) -> Dict[str, Any]:
-        """使用 OpenAI API 生成優化建議"""
-        prompt = f"""
-        分析以下 Amazon 產品資料並提供優化建議:
-        
-        產品標題: {product_data.get('title', '')}
-        當前價格: {product_data.get('price', 0)}
-        BSR 排名: {product_data.get('bsr', 0)}
-        評分: {product_data.get('rating', 0)}
-        競品價格範圍: {product_data.get('competitor_price_range', '')}
-        
-        請提供以下方面的具體優化建議:
-        1. 標題優化 (包含高搜尋量關鍵字)
-        2. 定價策略
-        3. 產品描述改進
-        4. 圖片建議
-        
-        回應格式為 JSON，包含以下結構:
-        {{
-            "title_optimization": {{
-                "current": "現在標題",
-                "suggested": "建議標題",
-                "reasoning": "原因說明",
-                "impact_score": 85
-            }},
-            "pricing_strategy": {{
-                "current": 299.99,
-                "suggested": 279.99,
-                "reasoning": "定價建議原因",
-                "impact_score": 70
-            }},
-            "feature_improvements": [
-                {{
-                    "area": "產品描述",
-                    "suggestion": "具體建議",
-                    "priority": "high"
-                }}
-            ]
-        }}
-        """
-        
-        try:
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "你是一個專業的 Amazon 電商優化顧問，擅長分析產品資料並提供具體的優化建議。"
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                temperature=0.7,
-                max_tokens=2000,
-                response_format={"type": "json_object"}
-            )
-            
-            return json.loads(response.choices[0].message.content)
-            
-        except Exception as e:
-            logger.error(f"OpenAI API 錯誤: {str(e)}")
-            raise Exception("無法生成優化建議")
-    
-    @celery_app.task
-    def generate_optimization_analysis(self, product_id: str, analysis_type: str = "comprehensive"):
-        """背景任務：生成優化分析"""
-        try:
-            # 獲取產品資料
-            product_data = asyncio.run(self.get_product_data(product_id))
-            
-            # 獲取競品資料
-            competitor_data = asyncio.run(self.get_competitor_data(product_id))
-            
-            # 生成優化建議
-            suggestions = asyncio.run(self.generate_suggestions({
-                **product_data,
-                "competitor_price_range": competitor_data.get("price_range")
-            }))
-            
-            # 儲存結果
-            asyncio.run(self.save_optimization_result(product_id, suggestions))
-            
-            return {"status": "completed", "product_id": product_id}
-            
-        except Exception as exc:
-            logger.error(f"優化分析失敗: {str(exc)}")
-            raise exc
-```
 
 ### 6. Notification Service
 
@@ -693,100 +297,13 @@ rate_limit:{user_id}:{endpoint} -> Counter
 ```
 
 **快取策略**:
-```javascript
-class CacheService {
-  async get(key) {
-    const cached = await redis.get(key);
-    return cached ? JSON.parse(cached) : null;
-  }
-  
-  async set(key, value, ttl = 3600) {
-    await redis.setex(key, ttl, JSON.stringify(value));
-  }
-  
-  async invalidate(pattern) {
-    const keys = await redis.keys(pattern);
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
-  }
-  
-  // 快取穿透保護
-  async getWithFallback(key, fallbackFn, ttl = 3600) {
-    let data = await this.get(key);
-    
-    if (!data) {
-      data = await fallbackFn();
-      if (data) {
-        await this.set(key, data, ttl);
-      }
-    }
-    
-    return data;
-  }
-}
-```
+
 
 ### 2. 任務佇列設計
 
 **佇列類型**:
-```javascript
-// 產品更新佇列 - 高優先級
-const productQueue = new Queue('product-updates', {
-  defaultJobOptions: {
-    removeOnComplete: 10,
-    removeOnFail: 5,
-    delay: 0,
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 2000,
-    }
-  }
-});
-
-// 分析佇列 - 中優先級
-const analysisQueue = new Queue('analysis', {
-  defaultJobOptions: {
-    removeOnComplete: 5,
-    removeOnFail: 3,
-    attempts: 2,
-    backoff: {
-      type: 'fixed',
-      delay: 5000,
-    }
-  }
-});
-
-// 通知佇列 - 低優先級
-const notificationQueue = new Queue('notifications', {
-  defaultJobOptions: {
-    removeOnComplete: 20,
-    removeOnFail: 10,
-    attempts: 5,
-    delay: 1000,
-  }
-});
-```
 
 **任務調度**:
-```javascript
-// 定期任務調度
-cron.schedule('0 */6 * * *', () => {
-  // 每 6 小時更新高頻產品
-  scheduleHighFrequencyUpdates();
-});
-
-cron.schedule('0 9 * * *', () => {
-  // 每日上午 9 點更新所有產品
-  scheduleDailyUpdates();
-});
-
-cron.schedule('0 2 * * 0', () => {
-  // 每週日凌晨 2 點執行競品分析
-  scheduleWeeklyAnalysis();
-});
-```
 
 ## 部署架構
 
@@ -891,7 +408,7 @@ services:
     restart: unless-stopped
 
   # Asynq Monitor (監控界面)
-  asynq-monitor:
+  asynq-dashboard:
     build: ./api-gateway
     command: ["./main", "monitor"]
     ports:
@@ -976,33 +493,7 @@ server {
 ```
 
 **自動擴展**:
-```yaml
-# Kubernetes HPA 範例
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: product-service-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: product-service
-  minReplicas: 2
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
-```
+docker compose 如何支持自动扩展？
 
 ## 監控與維運設計
 
@@ -1061,83 +552,6 @@ alerting:
 ### 2. 日誌架構
 
 **結構化日誌格式**:
-```python
-import logging
-import json
-from datetime import datetime
-from typing import Dict, Any
-
-# 設定結構化日誌
-class JSONFormatter(logging.Formatter):
-    def format(self, record):
-        log_entry = {
-            'timestamp': datetime.utcnow().isoformat(),
-            'level': record.levelname,
-            'service': 'amazon-monitor',
-            'version': os.getenv('APP_VERSION', '1.0.0'),
-            'message': record.getMessage(),
-            'module': record.module,
-            'function': record.funcName,
-            'line': record.lineno
-        }
-        
-        # 添加額外的上下文信息
-        if hasattr(record, 'extra_data'):
-            log_entry.update(record.extra_data)
-            
-        if record.exc_info:
-            log_entry['exception'] = self.formatException(record.exc_info)
-            
-        return json.dumps(log_entry, ensure_ascii=False)
-
-# 配置日誌
-def setup_logging():
-    logger = logging.getLogger('amazon_monitor')
-    logger.setLevel(logging.INFO)
-    
-    # 文件處理器
-    file_handler = logging.FileHandler('logs/application.log')
-    file_handler.setFormatter(JSONFormatter())
-    
-    # 錯誤文件處理器
-    error_handler = logging.FileHandler('logs/error.log')
-    error_handler.setLevel(logging.ERROR)
-    error_handler.setFormatter(JSONFormatter())
-    
-    # 控制台處理器
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(JSONFormatter())
-    
-    logger.addHandler(file_handler)
-    logger.addHandler(error_handler)
-    logger.addHandler(console_handler)
-    
-    return logger
-
-# 業務日誌記錄器
-class BusinessLogger:
-    @staticmethod
-    def product_updated(product_id: str, changes: list, user_id: str):
-        logger.info('Product updated', extra={
-            'extra_data': {
-                'event': 'product_updated',
-                'product_id': product_id,
-                'changes': changes,
-                'user_id': user_id
-            }
-        })
-    
-    @staticmethod
-    def analysis_completed(analysis_id: str, duration: float, status: str):
-        logger.info('Analysis completed', extra={
-            'extra_data': {
-                'event': 'analysis_completed',
-                'analysis_id': analysis_id,
-                'duration': duration,
-                'status': status
-            }
-        })
-```
 
 ### 3. 錯誤追蹤與告警
 
@@ -1179,196 +593,34 @@ groups:
 ### 1. API 安全
 
 **認證與授權**:
-```javascript
-// JWT 中間件
-const jwt = require('jsonwebtoken');
-
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.sendStatus(401);
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-}
-
-// Rate limiting per user
-const userRateLimit = rateLimit({
-  windowMs: 60 * 1000,
-  max: (req) => {
-    // 根據用戶計劃調整限流
-    switch (req.user?.plan_type) {
-      case 'enterprise': return 2000;
-      case 'premium': return 500;
-      default: return 100;
-    }
-  },
-  keyGenerator: (req) => req.user?.id || req.ip
-});
-```
+`
 
 ### 2. 資料安全
 
 **敏感資料加密**:
-```javascript
-const crypto = require('crypto');
-
-class EncryptionService {
-  constructor() {
-    this.algorithm = 'aes-256-gcm';
-    this.secretKey = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
-  }
-
-  encrypt(text) {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(this.algorithm, this.secretKey);
-    cipher.setAAD(Buffer.from('amazon-monitor', 'utf8'));
-    
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    const authTag = cipher.getAuthTag();
-    
-    return {
-      iv: iv.toString('hex'),
-      encryptedData: encrypted,
-      authTag: authTag.toString('hex')
-    };
-  }
-
-  decrypt(encryptedObj) {
-    const decipher = crypto.createDecipher(this.algorithm, this.secretKey);
-    decipher.setAAD(Buffer.from('amazon-monitor', 'utf8'));
-    decipher.setAuthTag(Buffer.from(encryptedObj.authTag, 'hex'));
-    
-    let decrypted = decipher.update(encryptedObj.encryptedData, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
-  }
-}
-```
+- 用户密码
 
 ### 3. 網路安全
 
 **HTTPS 和安全標頭**:
-```javascript
-const helmet = require('helmet');
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"]
-    }
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  }
-}));
+- CROS
 
-// CORS 設定
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:3000',
-  credentials: true,
-  optionsSuccessStatus: 200
-}));
-```
 
 ## 效能優化策略
 
 ### 1. 資料庫優化
 
 **連接池設定**:
-```javascript
-const { Pool } = require('pg');
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  max: 20, // 最大連接數
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
-```
 
 **查詢優化**:
-```javascript
-class ProductRepository {
-  async getTrackedProducts(userId, pagination) {
-    const query = `
-      SELECT p.*, tp.alias, tp.tracking_frequency,
-             ph.price as current_price,
-             rh.bsr_rank, rh.rating
-      FROM tracked_products tp
-      JOIN products p ON tp.product_id = p.id
-      LEFT JOIN LATERAL (
-        SELECT price FROM product_price_history 
-        WHERE product_id = p.id 
-        ORDER BY recorded_at DESC LIMIT 1
-      ) ph ON true
-      LEFT JOIN LATERAL (
-        SELECT bsr_rank, rating FROM product_ranking_history 
-        WHERE product_id = p.id 
-        ORDER BY recorded_at DESC LIMIT 1
-      ) rh ON true
-      WHERE tp.user_id = $1 AND tp.is_active = true
-      ORDER BY tp.updated_at DESC
-      LIMIT $2 OFFSET $3
-    `;
-    
-    return await pool.query(query, [userId, pagination.limit, pagination.offset]);
-  }
-}
-```
+
 
 ### 2. 快取優化
 
 **多層快取策略**:
-```javascript
-class CacheManager {
-  constructor() {
-    this.l1Cache = new Map(); // 記憶體快取
-    this.l2Cache = redis; // Redis 快取
-  }
 
-  async get(key) {
-    // L1 快取檢查
-    if (this.l1Cache.has(key)) {
-      return this.l1Cache.get(key);
-    }
-
-    // L2 快取檢查
-    const cached = await this.l2Cache.get(key);
-    if (cached) {
-      const data = JSON.parse(cached);
-      this.l1Cache.set(key, data); // 回填 L1
-      return data;
-    }
-
-    return null;
-  }
-
-  async set(key, value, ttl = 3600) {
-    // 同時設定兩層快取
-    this.l1Cache.set(key, value);
-    await this.l2Cache.setex(key, ttl, JSON.stringify(value));
-  }
-}
-```
 
 ## 災難恢復計畫
 
@@ -1395,87 +647,6 @@ aws s3 cp $BACKUP_DIR/full_backup_$DATE.sql s3://backup-bucket/postgres/
 ### 2. 故障恢復
 
 **服務健康檢查**:
-```python
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-import asyncio
-import asyncpg
-import redis.asyncio as redis
-from datetime import datetime
-
-app = FastAPI()
-
-@app.get("/health")
-async def health_check():
-    """健康檢查端點"""
-    health = {
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
-        "services": {}
-    }
-
-    try:
-        # 檢查資料庫連接
-        conn = await asyncpg.connect(DATABASE_URL)
-        await conn.execute('SELECT 1')
-        await conn.close()
-        health["services"]["database"] = "healthy"
-    except Exception as error:
-        health["services"]["database"] = "unhealthy"
-        health["status"] = "unhealthy"
-        health["database_error"] = str(error)
-
-    try:
-        # 檢查 Redis 連接
-        redis_client = redis.Redis.from_url(REDIS_URL)
-        await redis_client.ping()
-        await redis_client.close()
-        health["services"]["redis"] = "healthy"
-    except Exception as error:
-        health["services"]["redis"] = "unhealthy"
-        health["status"] = "unhealthy"
-        health["redis_error"] = str(error)
-
-    # 檢查 Celery 連接
-    try:
-        from celery import current_app
-        inspect = current_app.control.inspect()
-        stats = inspect.stats()
-        if stats:
-            health["services"]["celery"] = "healthy"
-        else:
-            health["services"]["celery"] = "unhealthy"
-            health["status"] = "unhealthy"
-    except Exception as error:
-        health["services"]["celery"] = "unhealthy"
-        health["status"] = "unhealthy"
-        health["celery_error"] = str(error)
-
-    status_code = 200 if health["status"] == "healthy" else 503
-    return JSONResponse(content=health, status_code=status_code)
-
-@app.get("/health/ready")
-async def readiness_check():
-    """就緒檢查端點"""
-    # 檢查關鍵服務是否就緒
-    try:
-        conn = await asyncpg.connect(DATABASE_URL)
-        await conn.execute('SELECT 1')
-        await conn.close()
-        
-        redis_client = redis.Redis.from_url(REDIS_URL)
-        await redis_client.ping()
-        await redis_client.close()
-        
-        return {"status": "ready"}
-    except Exception as error:
-        raise HTTPException(status_code=503, detail=f"Service not ready: {str(error)}")
-
-@app.get("/health/live")
-async def liveness_check():
-    """存活檢查端點"""
-    return {"status": "alive", "timestamp": datetime.utcnow().isoformat()}
-```
 
 **自動重啟機制**:
 ```yaml
@@ -1493,7 +664,6 @@ restart_policy:
 
 **微服務擴展**:
 - 各服務可獨立擴展
-- 使用容器編排（Kubernetes）
 - 自動擴展基於 CPU/記憶體使用率
 
 **資料庫擴展**:

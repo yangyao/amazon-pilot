@@ -1,26 +1,18 @@
 Name: auth-api
 Host: 0.0.0.0
-Port: 8888
+Port: 8001
 
-# DevServer配置 - 开发模式下启用
 DevServer:
   Enabled: true
-  Port: 8889
-  HealthPath: "/dev/health"
+  Port: 9001
   MetricsPath: "/dev/metrics"
 
-Database:
-  dsn: postgresql://postgres:amazon123@localhost:5432/amazon_pilot
-  maxIdleConns: 10
-  maxOpenConns: 100
-  connMaxLifetime: 3600
-
-Redis:
-  host: localhost
-  port: 6379
-  db: 0
-
 Auth:
-  jwtSecret: "amazon-pilot-jwt-secret-2025"
-  accessExpire: 86400
-  accessSecret: "amazon-pilot-jwt-secret-2025"
+  JWTSecret: ""    # 从环境变量 JWT_SECRET 获取
+  AccessSecret: "" # 从环境变量 JWT_ACCESS_SECRET 获取
+  AccessExpire: 0  # 从环境变量 JWT_ACCESS_EXPIRE 获取
+
+# 数据库、Redis、JWT配置已迁移到环境变量
+# 请确保以下环境变量已设置：
+# DATABASE_DSN, DATABASE_MAX_IDLE_CONNS, DATABASE_MAX_OPEN_CONNS, DATABASE_CONN_MAX_LIFETIME
+# JWT_SECRET, JWT_ACCESS_SECRET, JWT_ACCESS_EXPIRE

@@ -30,7 +30,7 @@ func main() {
 	apiToken := os.Getenv("APIFY_API_TOKEN")
 	if apiToken == "" {
 		fmt.Println("❌ APIFY_API_TOKEN 未设置")
-		fmt.Println("请设置: export APIFY_API_TOKEN='apify_api_pi5ywKkUE97U9DBYreWcIRfOTVOkz04bI9UP'")
+		fmt.Println("请设置: export APIFY_API_TOKEN='apify_api_HgvyIrj5seS6aftD9RsJmK1ODLj1aq1CriGN'")
 		return
 	}
 
@@ -45,11 +45,11 @@ func main() {
 
 	// 使用一个简单可用的Apify Actor
 	actorID := "epctex/amazon-scraper" // 这个Actor更稳定
-	
+
 	input := map[string]interface{}{
 		"productUrls": []string{
 			"https://www.amazon.com/dp/B08N5WRWNW",
-			"https://www.amazon.com/dp/B0BFZB9Z2P", 
+			"https://www.amazon.com/dp/B0BFZB9Z2P",
 			"https://www.amazon.com/dp/B0CKX16C6Z",
 		},
 		"maxItems": 3,
@@ -96,7 +96,7 @@ func main() {
 	// 等待运行完成
 	for i := 0; i < 30; i++ { // 最多等待5分钟
 		time.Sleep(10 * time.Second)
-		
+
 		statusURL := fmt.Sprintf("https://api.apify.com/v2/acts/runs/%s", runID)
 		statusReq, _ := http.NewRequest("GET", statusURL, nil)
 		statusReq.Header.Set("Authorization", "Bearer "+apiToken)

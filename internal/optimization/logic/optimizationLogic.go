@@ -23,7 +23,7 @@ func NewOptimizationLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Opti
 	}
 }
 
-func (l *OptimizationLogic) Optimization(req *types.Request) (resp *types.Response, err error) {
+func (l *OptimizationLogic) Optimization(req *types.GetOptimizationRequest) (resp *types.GetOptimizationResponse, err error) {
 	// todo: add your logic here and delete this line
 
 	return

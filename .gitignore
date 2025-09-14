@@ -5,6 +5,7 @@
 *.dll
 *.so
 *.dylib
+.env
 
 # Test binaries
 *.test

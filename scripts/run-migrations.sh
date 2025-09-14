@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# run-migrations.sh
-# 执行 Supabase 数据库 migrations
+# Database Migration Script
+# Purpose: Apply new database migrations for Amazon Pilot
 
 set -e
 
-# 颜色输出
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -17,69 +17,80 @@ print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# 检查环境
-check_environment() {
-    if [[ ! -f ".env" ]]; then
-        print_error ".env 文件未找到"
-        exit 1
-    fi
-    
-    if ! command -v psql &> /dev/null; then
-        print_error "psql 命令未找到，请安装 PostgreSQL 客户端"
-        exit 1
-    fi
-    
-    print_info "环境检查通过"
-}
+# Database connection
+DB_HOST=${DB_HOST:-localhost}
+DB_PORT=${DB_PORT:-5432}
+DB_USER=${DB_USER:-postgres}
+DB_PASSWORD=${DB_PASSWORD:-amazon123}
+DB_NAME=${DB_NAME:-amazon_pilot}
 
-# 加载环境变量
-load_env() {
-    source .env
-    
-    if [[ -z "$SUPABASE_URL" ]]; then
-        print_error "SUPABASE_URL 环境变量未设置"
-        exit 1
-    fi
-    
-    print_info "环境变量加载完成"
-}
+PSQL_CMD="psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME"
 
-# 执行 migration 文件
-run_migration() {
-    local migration_file="$1"
-    local migration_name=$(basename "$migration_file" .sql)
-    
-    print_info "执行 migration: $migration_name"
-    
-    if psql "$SUPABASE_URL" -f "$migration_file"; then
-        print_success "✅ $migration_name 执行成功"
-    else
-        print_error "❌ $migration_name 执行失败"
-        exit 1
-    fi
-}
+print_info "🗃️  Running Amazon Pilot Database Migrations..."
+print_info "📍 Target: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
 
-# 主函数
-main() {
-    print_info "🚀 开始执行 Supabase migrations..."
-    
-    check_environment
-    load_env
-    
-    # 按顺序执行所有 migration 文件
-    for migration_file in migrations/*.sql; do
-        if [[ -f "$migration_file" ]]; then
-            run_migration "$migration_file"
+# Create schema_migrations table if not exists
+print_info "📋 Creating migrations tracking table..."
+$PSQL_CMD -c "
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version VARCHAR(255) PRIMARY KEY,
+    applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+" 2>/dev/null || true
+
+# Check existing migrations
+print_info "🔍 Checking applied migrations..."
+APPLIED_MIGRATIONS=$($PSQL_CMD -t -c "SELECT version FROM schema_migrations ORDER BY applied_at;" 2>/dev/null | xargs)
+print_info "Applied migrations: $APPLIED_MIGRATIONS"
+
+# Apply new migrations
+MIGRATIONS_DIR="deployments/migrations"
+
+if [[ ! -d "$MIGRATIONS_DIR" ]]; then
+    print_error "Migrations directory not found: $MIGRATIONS_DIR"
+    exit 1
+fi
+
+for migration_file in "$MIGRATIONS_DIR"/*.sql; do
+    if [[ -f "$migration_file" ]]; then
+        migration_name=$(basename "$migration_file" .sql)
+
+        # Check if already applied
+        if echo "$APPLIED_MIGRATIONS" | grep -q "$migration_name"; then
+            print_info "⏭️  Skipping $migration_name (already applied)"
+            continue
         fi
-    done
-    
-    print_success "🎉 所有 migrations 执行完成！"
-    
-    # 验证表创建
-    print_info "🔍 验证表结构..."
-    psql "$SUPABASE_URL" -c "\dt" | head -20
-    
-    print_success "📊 数据库已准备就绪！"
-}
 
-main "$@"
+        print_info "🔄 Applying migration: $migration_name"
+
+        # Apply migration
+        if $PSQL_CMD -f "$migration_file"; then
+            print_success "✅ Migration $migration_name applied successfully"
+        else
+            print_error "❌ Migration $migration_name failed"
+            exit 1
+        fi
+    fi
+done
+
+# Verify new tables
+print_info "🔍 Verifying new tables..."
+NEW_TABLES=$($PSQL_CMD -t -c "
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+AND table_name IN ('product_review_history', 'product_buybox_history');
+" 2>/dev/null | xargs)
+
+if [[ "$NEW_TABLES" == *"product_review_history"* ]] && [[ "$NEW_TABLES" == *"product_buybox_history"* ]]; then
+    print_success "✅ All required tables created successfully"
+    print_success "📊 Tables: product_review_history, product_buybox_history"
+else
+    print_warning "⚠️  Some tables may not have been created: $NEW_TABLES"
+fi
+
+print_success "🎉 Database migrations completed successfully!"
+print_info "📋 Summary:"
+print_info "   • Added product_review_history table (track review changes)"
+print_info "   • Added product_buybox_history table (track Buy Box changes)"
+print_info "   • Supports questions.md requirements for complete tracking"

@@ -1,19 +1,14 @@
 Name: product-api
 Host: 0.0.0.0
-Port: 8889
+Port: 8002
+Timeout: 30000
 
-Database:
-  dsn: postgresql://postgres:amazon123@localhost:5432/amazon_pilot
-  maxIdleConns: 10
-  maxOpenConns: 100
-  connMaxLifetime: 3600
-
-Redis:
-  host: localhost
-  port: 6379
-  db: 0
+DevServer:
+  Enabled: true
+  Port: 9002
+  MetricsPath: "/dev/metrics"
 
 Auth:
-  jwtSecret: "amazon-pilot-jwt-secret-2025"
-  accessExpire: 86400
-  accessSecret: "amazon-pilot-jwt-secret-2025"
+  JWTSecret: ""    # 从环境变量 JWT_SECRET 获取
+  AccessSecret: "" # 从环境变量 JWT_ACCESS_SECRET 获取
+  AccessExpire: 0  # 从环境变量 JWT_ACCESS_EXPIRE 获取

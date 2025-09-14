@@ -1,0 +1,66 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+  # Prometheus 自身监控
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway 指标
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['host.docker.internal:8080']  # 本机网关服务
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Auth 服务指标 (go-zero DevServer)
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['host.docker.internal:9001']
+    metrics_path: /dev/metrics
+    scrape_interval: 15s
+
+  # Product 服务指标 (go-zero DevServer)
+  - job_name: 'product-service'
+    static_configs:
+      - targets: ['host.docker.internal:9002']
+    metrics_path: /dev/metrics
+    scrape_interval: 15s
+
+  # Competitor 服务指标 (go-zero DevServer)
+  - job_name: 'competitor-service'
+    static_configs:
+      - targets: ['host.docker.internal:9003']
+    metrics_path: /dev/metrics
+    scrape_interval: 15s
+
+  # Optimization 服务指标 (go-zero DevServer)
+  - job_name: 'optimization-service'
+    static_configs:
+      - targets: ['host.docker.internal:9004']
+    metrics_path: /dev/metrics
+    scrape_interval: 15s
+
+  # Notification 服务指标 (go-zero DevServer)
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['host.docker.internal:9005']
+    metrics_path: /dev/metrics
+    scrape_interval: 15s
+
+  # PostgreSQL 指标 (如果有 postgres_exporter)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres_exporter:9187']
+    scrape_interval: 30s
+
+  # Redis 指标 (如果有 redis_exporter)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis_exporter:9121'] 
+    scrape_interval: 30s

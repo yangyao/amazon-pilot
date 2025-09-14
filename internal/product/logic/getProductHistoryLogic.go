@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"amazonpilot/internal/product/svc"
@@ -126,9 +125,44 @@ func (l *GetProductHistoryLogic) GetProductHistory(req *types.GetHistoryRequest)
 			}
 		}
 
+	case "review_count":
+		var rankingHistory []models.RankingHistory
+		err = l.svcCtx.DB.Where("product_id = ? AND recorded_at >= ?", trackedProduct.ProductID, startTime).
+			Order("recorded_at ASC").Find(&rankingHistory).Error
+		if err != nil {
+			utils.LogError(l.ctx, "Failed to get review count history", "error", err)
+			return nil, errors.ErrInternalServer
+		}
+
+		historyData = make([]types.HistoryData, len(rankingHistory))
+		for i, rh := range rankingHistory {
+			historyData[i] = types.HistoryData{
+				Date:  rh.RecordedAt.Format("2006-01-02"),
+				Value: float64(rh.ReviewCount),
+			}
+		}
+
+	case "buybox":
+		var buyboxHistory []models.BuyBoxHistory
+		err = l.svcCtx.DB.Where("product_id = ? AND recorded_at >= ? AND winner_price IS NOT NULL", trackedProduct.ProductID, startTime).
+			Order("recorded_at ASC").Find(&buyboxHistory).Error
+		if err != nil {
+			utils.LogError(l.ctx, "Failed to get Buy Box history", "error", err)
+			return nil, errors.ErrInternalServer
+		}
+
+		historyData = make([]types.HistoryData, len(buyboxHistory))
+		for i, bh := range buyboxHistory {
+			historyData[i] = types.HistoryData{
+				Date:     bh.RecordedAt.Format("2006-01-02"),
+				Value:    *bh.WinnerPrice,
+				Currency: bh.Currency,
+			}
+		}
+
 	default:
 		return nil, errors.NewValidationError("Invalid metric", []errors.FieldError{
-			{Field: "metric", Message: "Metric must be one of: price, bsr, rating"},
+			{Field: "metric", Message: "Metric must be one of: price, bsr, rating, review_count, buybox"},
 		})
 	}
 

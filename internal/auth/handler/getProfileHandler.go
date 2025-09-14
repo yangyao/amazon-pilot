@@ -3,9 +3,11 @@ package handler
 import (
 	"net/http"
 
-	"github.com/zeromicro/go-zero/rest/httpx"
 	"amazonpilot/internal/auth/logic"
 	"amazonpilot/internal/auth/svc"
+	"amazonpilot/internal/pkg/utils"
+
+	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func getProfileHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
@@ -13,7 +15,7 @@ func getProfileHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := logic.NewGetProfileLogic(r.Context(), svcCtx)
 		resp, err := l.GetProfile()
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			utils.HandleError(w, err)
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

@@ -1,100 +1,119 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
-	"amazonpilot/internal/pkg/database"
 	"amazonpilot/internal/pkg/logger"
-	"amazonpilot/internal/pkg/queue"
-	"amazonpilot/internal/pkg/workers"
+	"amazonpilot/internal/pkg/tasks"
 
-	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/hibiken/asynq"
+	"github.com/joho/godotenv"
 )
 
-var configFile = flag.String("f", "cmd/worker/etc/worker.yaml", "the config file")
-
-type Config struct {
-	Database struct {
-		Host     string `yaml:"Host"`
-		Port     int    `yaml:"Port"`
-		User     string `yaml:"User"`
-		Password string `yaml:"Password"`
-		DBName   string `yaml:"DBName"`
-		SSLMode  string `yaml:"SSLMode"`
-	} `yaml:"Database"`
-	Redis struct {
-		Addr     string `yaml:"Addr"`
-		Password string `yaml:"Password"`
-		DB       int    `yaml:"DB"`
-	} `yaml:"Redis"`
-	Worker struct {
-		Concurrency int `yaml:"Concurrency"`
-		LogLevel    string `yaml:"LogLevel"`
-	} `yaml:"Worker"`
-}
-
 func main() {
-	flag.Parse()
+	// 加载.env文件
+	if err := godotenv.Load(".env"); err != nil {
+		log.Printf("Warning: .env file not found: %v", err)
+	}
 
 	// 初始化结构化日志
 	logger.InitStructuredLogger()
 
-	var c Config
-	conf.MustLoad(*configFile, &c)
-
-	slog.Info("Starting Amazon Pilot Worker",
-		"config_file", *configFile,
-		"concurrency", c.Worker.Concurrency,
-	)
-
-	// 初始化数据库连接
-	db, err := database.NewConnection(database.Config{
-		Host:     c.Database.Host,
-		Port:     c.Database.Port,
-		User:     c.Database.User,
-		Password: c.Database.Password,
-		DBName:   c.Database.DBName,
-		SSLMode:  c.Database.SSLMode,
-	})
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+	// 从环境变量读取配置
+	databaseDSN := os.Getenv("DATABASE_DSN")
+	if databaseDSN == "" {
+		log.Fatal("DATABASE_DSN environment variable is required")
 	}
 
-	// 初始化队列管理器
-	queueMgr := queue.NewQueueManager(c.Redis.Addr)
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		log.Fatal("REDIS_HOST environment variable is required")
+	}
 
-	// 初始化工作器服务
-	workerService := workers.NewWorkerService(db, queueMgr)
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		log.Fatal("REDIS_PORT environment variable is required")
+	}
 
-	// 设置信号处理
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	redisDBStr := os.Getenv("REDIS_DB")
+	if redisDBStr == "" {
+		log.Fatal("REDIS_DB environment variable is required")
+	}
+	redisDB, err := strconv.Atoi(redisDBStr)
+	if err != nil {
+		log.Fatal("Invalid REDIS_DB value: " + err.Error())
+	}
 
-	// 启动工作器
+	apifyAPIToken := os.Getenv("APIFY_API_TOKEN")
+	if apifyAPIToken == "" {
+		log.Fatal("APIFY_API_TOKEN environment variable is required")
+	}
+
+	concurrencyStr := os.Getenv("WORKER_CONCURRENCY")
+	if concurrencyStr == "" {
+		log.Fatal("WORKER_CONCURRENCY environment variable is required")
+	}
+	concurrency, err := strconv.Atoi(concurrencyStr)
+	if err != nil {
+		log.Fatal("Invalid WORKER_CONCURRENCY value: " + err.Error())
+	}
+
+	slog.Info("Amazon Pilot Worker starting",
+		"redis_host", redisHost,
+		"redis_port", redisPort,
+		"redis_db", redisDB,
+		"concurrency", concurrency,
+	)
+
+	// Redis连接配置 (从环境变量读取)
+	redisAddr := redisHost + ":" + redisPort
+	redisOpt := asynq.RedisClientOpt{
+		Addr: redisAddr,
+		DB:   redisDB,
+	}
+
+	// 创建任务服务器 (使用环境变量配置)
+	srv := asynq.NewServer(redisOpt, asynq.Config{
+		Concurrency: concurrency,
+		Queues: map[string]int{
+			"critical": 6,  // 异常检测、紧急通知
+			"default":  3,  // 一般数据刷新
+			"apify":    2,  // Apify数据获取
+			"cleanup":  1,  // 数据清理
+		},
+	})
+
+	// 创建任务处理器 (使用环境变量配置)
+	processor := tasks.NewApifyTaskProcessor(
+		databaseDSN,
+		apifyAPIToken,
+		redisAddr,
+	)
+
+	// 注册任务处理函数
+	mux := asynq.NewServeMux()
+	mux.HandleFunc(tasks.TypeRefreshProductData, processor.HandleRefreshProductData)
+
+	// 优雅关闭处理
 	go func() {
-		slog.Info("Starting worker server",
-			"redis_addr", c.Redis.Addr,
-			"concurrency", c.Worker.Concurrency,
-		)
-
-		if err := queueMgr.StartServer(workerService.GetHandlers()); err != nil {
+		slog.Info("Worker server starting processing")
+		if err := srv.Run(mux); err != nil {
+			slog.Error("Worker server failed", "error", err)
 			log.Fatalf("Worker server failed: %v", err)
 		}
 	}()
 
-	// 等待信号
-	sig := <-sigChan
-	slog.Info("Received signal, shutting down worker",
-		"signal", sig.String(),
-	)
+	// 等待中断信号
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	sig := <-quit
 
-	// 优雅关闭
-	queueMgr.Stop()
+	slog.Info("Worker shutdown initiated", "signal", sig.String())
+	srv.Shutdown()
 	slog.Info("Worker shutdown complete")
 }
-

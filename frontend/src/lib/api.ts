@@ -4,7 +4,7 @@ import Cookies from 'js-cookie'
 // 创建axios实例 - 通过API Gateway访问
 const api = axios.create({
   baseURL: process.env.API_BASE_URL || 'http://localhost:8080/api',
-  timeout: 10000,
+  timeout: 300000, // 5分钟超时，适合Apify搜索
   headers: {
     'Content-Type': 'application/json',
   },
@@ -103,20 +103,24 @@ export interface APIError {
 // Auth API
 export const authAPI = {
   // 用户登录
-  login: (data: LoginRequest): Promise<LoginResponse> => 
+  login: (data: LoginRequest): Promise<LoginResponse> =>
     api.post('/auth/login', data).then(res => res.data),
 
   // 用户注册
-  register: (data: RegisterRequest): Promise<RegisterResponse> => 
+  register: (data: RegisterRequest): Promise<RegisterResponse> =>
     api.post('/auth/register', data).then(res => res.data),
 
-  // 获取用户资料 
-  getProfile: (): Promise<ProfileResponse> => 
+  // 获取用户资料
+  getProfile: (): Promise<ProfileResponse> =>
     api.get('/auth/users/profile').then(res => res.data),
 
   // 更新用户资料
-  updateProfile: (data: any): Promise<{ message: string }> => 
+  updateProfile: (data: any): Promise<{ message: string }> =>
     api.put('/auth/users/profile', data).then(res => res.data),
+
+  // 用户登出
+  logout: (): Promise<{ message: string }> =>
+    api.post('/auth/logout').then(res => res.data),
 }
 
 // Health check API

@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"time"
 
 	"amazonpilot/internal/optimization/svc"
 	"amazonpilot/internal/optimization/types"
@@ -24,7 +25,11 @@ func NewHealthLogic(ctx context.Context, svcCtx *svc.ServiceContext) *HealthLogi
 }
 
 func (l *HealthLogic) Health() (resp *types.HealthResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	resp = &types.HealthResponse{
+		Service: "optimization-api",
+		Status:  "healthy",
+		Version: "v1.0.0",
+		Uptime:  time.Now().Unix(),
+	}
+	return resp, nil
 }
