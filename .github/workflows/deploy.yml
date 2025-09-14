@@ -244,8 +244,27 @@ jobs:
             fi
             
             echo "📦 Loading Docker images..."
-            # 加载所有新镜像（从上传目录）
-            find /tmp/amazon-pilot-deploy -name "*-image.tar.gz" -exec sh -c 'echo "Loading {}..." && gunzip -c {} | docker load' \;
+            # 检查上传的镜像文件
+            echo "🔍 检查上传的镜像文件:"
+            find /tmp/amazon-pilot-deploy -name "*.tar.gz" | head -10
+
+            # 加载所有镜像文件
+            IMAGE_COUNT=0
+            for image_file in $(find /tmp/amazon-pilot-deploy -name "*.tar.gz"); do
+              if [ -f "$image_file" ]; then
+                echo "📦 Loading $image_file..."
+                if gunzip -c "$image_file" | docker load; then
+                  echo "✅ Successfully loaded $image_file"
+                  IMAGE_COUNT=$((IMAGE_COUNT + 1))
+                else
+                  echo "❌ Failed to load $image_file"
+                fi
+              fi
+            done
+
+            echo "📊 Total images loaded: $IMAGE_COUNT"
+            echo "🔍 验证加载的镜像:"
+            docker images | grep amazon-pilot
             
             echo "🔄 Performing rolling update..."
             # 滚动更新所有服务
@@ -263,8 +282,10 @@ jobs:
             }
             
             echo "🧹 Cleanup..."
-            # 清理镜像文件和无用容器
+            # 清理上传的镜像文件
+            echo "🗑️  清理临时文件..."
             rm -rf /tmp/amazon-pilot-deploy
+            echo "🐳 清理无用的Docker资源..."
             docker system prune -f
             
             echo "✅ Deployment completed successfully!"
