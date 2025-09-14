@@ -95,36 +95,64 @@ jobs:
         name: frontend-image
         path: frontend-image.tar.gz
 
-  build-backend:
+  build-gateway:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: docker/setup-buildx-action@v3
-    - name: Build Backend Services
+    - name: Build Gateway Service
       run: |
-        # 并发构建后端服务
-        docker build -f docker/Dockerfile.gateway -t amazon-pilot-gateway:latest . &
-        docker build -f docker/Dockerfile.worker -t amazon-pilot-worker:latest . &
-        docker build -f docker/Dockerfile.scheduler -t amazon-pilot-scheduler:latest . &
-        docker build -f docker/Dockerfile.dashboard -t amazon-pilot-dashboard:latest . &
-
-        # 等待所有构建完成
-        wait
-
-        # 保存镜像
-        docker save amazon-pilot-gateway:latest | gzip > gateway-image.tar.gz &
-        docker save amazon-pilot-worker:latest | gzip > worker-image.tar.gz &
-        docker save amazon-pilot-scheduler:latest | gzip > scheduler-image.tar.gz &
-        docker save amazon-pilot-dashboard:latest | gzip > dashboard-image.tar.gz &
-
-        wait
+        docker build -f docker/Dockerfile.gateway -t amazon-pilot-gateway:latest .
+        docker save amazon-pilot-gateway:latest | gzip > gateway-image.tar.gz
     - uses: actions/upload-artifact@v4
       with:
-        name: backend-images
-        path: "*-image.tar.gz"
+        name: gateway-image
+        path: gateway-image.tar.gz
+
+  build-worker:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Worker Service
+      run: |
+        docker build -f docker/Dockerfile.worker -t amazon-pilot-worker:latest .
+        docker save amazon-pilot-worker:latest | gzip > worker-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: worker-image
+        path: worker-image.tar.gz
+
+  build-scheduler:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Scheduler Service
+      run: |
+        docker build -f docker/Dockerfile.scheduler -t amazon-pilot-scheduler:latest .
+        docker save amazon-pilot-scheduler:latest | gzip > scheduler-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: scheduler-image
+        path: scheduler-image.tar.gz
+
+  build-dashboard:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: docker/setup-buildx-action@v3
+    - name: Build Dashboard Service
+      run: |
+        docker build -f docker/Dockerfile.dashboard -t amazon-pilot-dashboard:latest .
+        docker save amazon-pilot-dashboard:latest | gzip > dashboard-image.tar.gz
+    - uses: actions/upload-artifact@v4
+      with:
+        name: dashboard-image
+        path: dashboard-image.tar.gz
 
   deploy:
-    needs: [build-auth, build-product, build-competitor, build-optimization, build-frontend, build-backend]
+    needs: [build-auth, build-product, build-competitor, build-optimization, build-frontend, build-gateway, build-worker, build-scheduler, build-dashboard]
     runs-on: ubuntu-latest
     environment: production
 
@@ -141,8 +169,9 @@ jobs:
         host: ${{ secrets.SERVER_HOST }}
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SERVER_SSH_KEY }}
-        source: "*/artifacts/*"
-        target: "/tmp/"
+        source: "."
+        target: "/tmp/amazon-pilot-deploy/"
+        strip_components: 0
 
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
@@ -211,15 +240,19 @@ jobs:
           # 设置文件权限
           chmod 600 ${{ env.ENV_FILE }}
 
-          # 拉取最新代码
-          git pull origin main
+          # 调试信息
+          echo "🔍 Current directory: $(pwd)"
+          echo "📋 Available files: $(ls -la)"
+          echo "🐳 Docker version: $(docker --version)"
 
-          # 备份当前环境
-          cp ${{ env.COMPOSE_FILE }} docker-compose.yml.backup.$(date +%Y%m%d_%H%M%S)
+          # 备份当前环境（如果存在）
+          if [ -f "${{ env.COMPOSE_FILE }}" ]; then
+            cp ${{ env.COMPOSE_FILE }} docker-compose.yml.backup.$(date +%Y%m%d_%H%M%S)
+          fi
 
           echo "📦 Loading Docker images..."
-          # 加载所有新镜像（从/tmp目录）
-          find /tmp -name "*-image.tar.gz" -exec sh -c 'echo "Loading {}..." && gunzip -c {} | docker load' \;
+          # 加载所有新镜像（从上传目录）
+          find /tmp/amazon-pilot-deploy -name "*-image.tar.gz" -exec sh -c 'echo "Loading {}..." && gunzip -c {} | docker load' \;
 
           echo "🔄 Performing rolling update..."
           # 滚动更新所有服务
@@ -237,9 +270,9 @@ jobs:
           }
 
           echo "🧹 Cleanup..."
-          # 清理
+          # 清理镜像文件和无用容器
+          rm -rf /tmp/amazon-pilot-deploy
           docker system prune -f
-          find . -name "*-image.tar.gz" -delete
 
           echo "✅ Deployment completed successfully!"
           echo "🌐 Service available at: https://amazon-pilot.phpman.top"
