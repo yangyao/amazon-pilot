@@ -25,6 +25,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      service: ${{ steps.services.outputs.service }}
 
     steps:
     - name: Checkout code
@@ -36,8 +38,12 @@ jobs:
     - name: Determine services to build
       id: services
       run: |
-        SERVICE_INPUT="${{ github.event.inputs.service }}"
-        SERVICE="${SERVICE_INPUT:-all}"
+        # 如果是手动触发，使用输入的service；否则默认构建所有服务
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          SERVICE="${{ github.event.inputs.service }}"
+        else
+          SERVICE="all"
+        fi
 
         echo "service=$SERVICE" >> $GITHUB_OUTPUT
         echo "Building service: $SERVICE"

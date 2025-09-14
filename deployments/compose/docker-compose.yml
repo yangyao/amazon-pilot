@@ -47,17 +47,17 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - ENVIRONMENT=production
-      - DATABASE_DSN=${DATABASE_DSN}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DATABASE_DSN=${DATABASE_DSN:-postgresql://postgres:amazon123@amazon-pilot-postgres:5432/amazon_pilot}
       - DATABASE_MAX_IDLE_CONNS=${DATABASE_MAX_IDLE_CONNS}
       - DATABASE_MAX_OPEN_CONNS=${DATABASE_MAX_OPEN_CONNS}
       - DATABASE_CONN_MAX_LIFETIME=${DATABASE_CONN_MAX_LIFETIME}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_DB=${REDIS_DB}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
-      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE}
+      - REDIS_HOST=${REDIS_HOST:-amazon-pilot-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - JWT_SECRET=${JWT_SECRET:-amazon-pilot-jwt-secret-2025}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-amazon-pilot-jwt-secret-2025}
+      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE:-86400}
     depends_on:
       - amazon-pilot-postgres
       - amazon-pilot-redis
@@ -77,17 +77,17 @@ services:
     ports:
       - "8002:8002"
     environment:
-      - ENVIRONMENT=production
-      - DATABASE_DSN=${DATABASE_DSN}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DATABASE_DSN=${DATABASE_DSN:-postgresql://postgres:amazon123@amazon-pilot-postgres:5432/amazon_pilot}
       - DATABASE_MAX_IDLE_CONNS=${DATABASE_MAX_IDLE_CONNS}
       - DATABASE_MAX_OPEN_CONNS=${DATABASE_MAX_OPEN_CONNS}
       - DATABASE_CONN_MAX_LIFETIME=${DATABASE_CONN_MAX_LIFETIME}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_DB=${REDIS_DB}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
-      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE}
+      - REDIS_HOST=${REDIS_HOST:-amazon-pilot-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - JWT_SECRET=${JWT_SECRET:-amazon-pilot-jwt-secret-2025}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-amazon-pilot-jwt-secret-2025}
+      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE:-86400}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN}
     depends_on:
       - amazon-pilot-postgres
@@ -108,17 +108,17 @@ services:
     ports:
       - "8003:8003"
     environment:
-      - ENVIRONMENT=production
-      - DATABASE_DSN=${DATABASE_DSN}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DATABASE_DSN=${DATABASE_DSN:-postgresql://postgres:amazon123@amazon-pilot-postgres:5432/amazon_pilot}
       - DATABASE_MAX_IDLE_CONNS=${DATABASE_MAX_IDLE_CONNS}
       - DATABASE_MAX_OPEN_CONNS=${DATABASE_MAX_OPEN_CONNS}
       - DATABASE_CONN_MAX_LIFETIME=${DATABASE_CONN_MAX_LIFETIME}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_DB=${REDIS_DB}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
-      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE}
+      - REDIS_HOST=${REDIS_HOST:-amazon-pilot-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - JWT_SECRET=${JWT_SECRET:-amazon-pilot-jwt-secret-2025}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-amazon-pilot-jwt-secret-2025}
+      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE:-86400}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
@@ -140,17 +140,17 @@ services:
     ports:
       - "8004:8004"
     environment:
-      - ENVIRONMENT=production
-      - DATABASE_DSN=${DATABASE_DSN}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DATABASE_DSN=${DATABASE_DSN:-postgresql://postgres:amazon123@amazon-pilot-postgres:5432/amazon_pilot}
       - DATABASE_MAX_IDLE_CONNS=${DATABASE_MAX_IDLE_CONNS}
       - DATABASE_MAX_OPEN_CONNS=${DATABASE_MAX_OPEN_CONNS}
       - DATABASE_CONN_MAX_LIFETIME=${DATABASE_CONN_MAX_LIFETIME}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_DB=${REDIS_DB}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
-      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE}
+      - REDIS_HOST=${REDIS_HOST:-amazon-pilot-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - JWT_SECRET=${JWT_SECRET:-amazon-pilot-jwt-secret-2025}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-amazon-pilot-jwt-secret-2025}
+      - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE:-86400}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       - amazon-pilot-postgres
@@ -205,7 +205,7 @@ services:
     image: amazon-pilot-worker:latest
     container_name: amazon-pilot-worker-service
     environment:
-      - ENVIRONMENT=production
+      - ENVIRONMENT=${ENVIRONMENT:-development}
     depends_on:
       - amazon-pilot-postgres
       - amazon-pilot-redis
@@ -223,7 +223,7 @@ services:
     image: amazon-pilot-scheduler:latest
     container_name: amazon-pilot-scheduler-service
     environment:
-      - ENVIRONMENT=production
+      - ENVIRONMENT=${ENVIRONMENT:-development}
     depends_on:
       - amazon-pilot-postgres
       - amazon-pilot-redis
@@ -243,7 +243,7 @@ services:
     ports:
       - "5555:5555"
     environment:
-      - ENVIRONMENT=production
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_DB=${REDIS_DB}
