@@ -132,6 +132,8 @@ deployments/keys/
 *.p12
 *.pfx
 
-# Production environment files
-.env.production
+# Production environment files (backend)
 deployments/compose/.env.production
+
+# Frontend production env is safe to commit (no secrets)
+!frontend/.env.production

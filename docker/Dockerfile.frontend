@@ -13,8 +13,10 @@ RUN npm install -g pnpm
 # 安装依赖
 RUN pnpm install
 
-# 复制源码和环境配置
+# 复制源码
 COPY frontend/ .
+
+# 生产环境下使用相对路径API（通过Caddy代理）
 COPY frontend/.env.production ./.env.local
 
 # 构建应用
