@@ -166,15 +166,14 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         timeout: 600s
-        envs: DEPLOY_DIR,DATABASE_DSN,JWT_SECRET,APIFY_API_TOKEN,OPENAI_API_KEY,GRAFANA_PASSWORD
-      env:
-        DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
-        DATABASE_DSN: ${{ secrets.DATABASE_DSN }}
-        JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
         script: |
+          export DEPLOY_DIR="/opt/amazon-pilot"
+          export DATABASE_DSN="${{ secrets.DATABASE_DSN }}"
+          export JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          export APIFY_API_TOKEN="${{ secrets.APIFY_API_TOKEN }}"
+          export OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}"
+          export GRAFANA_PASSWORD="${{ secrets.GRAFANA_PASSWORD }}"
+
           echo "🚀 Executing server deployment script..."
           cd /opt/amazon-pilot
           ./server-deploy.sh
