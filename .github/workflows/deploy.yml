@@ -181,27 +181,16 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
           script: |
-            set -e
-
-            # 创建详细日志文件
-            LOGFILE="/tmp/amazon-pilot-deploy-$(date +%Y%m%d_%H%M%S).log"
-            exec > >(tee -a "$LOGFILE") 2>&1
-
-            echo "=========================================="
-            echo "🚀 Starting Amazon Pilot deployment..."
-            echo "📍 Deploy directory: ${{ env.DEPLOY_DIR }}"
-            echo "📁 Compose file: ${{ env.COMPOSE_FILE }}"
-            echo "📄 Env file: ${{ env.ENV_FILE }}"
-            echo "🕐 Start time: $(date)"
-            echo "📋 Log file: $LOGFILE"
-            echo "=========================================="
+            # 简化脚本测试SSH执行
+            echo "TEST: GitHub CI SSH script is executing"
+            date > /tmp/github-ci-test.log
+            echo "Current directory: $(pwd)" >> /tmp/github-ci-test.log
+            echo "Environment variables:" >> /tmp/github-ci-test.log
+            env | grep -E "(DATABASE_DSN|JWT_SECRET)" >> /tmp/github-ci-test.log
 
             # 进入部署目录
-            echo "📂 Changing to deploy directory..."
             cd ${{ env.DEPLOY_DIR }}
-            echo "✅ Current directory: $(pwd)"
-            echo "📋 Directory contents:"
-            ls -la
+            echo "Changed to: $(pwd)" >> /tmp/github-ci-test.log
             
             # 生成生产环境配置
             echo "📝 Generating production environment file..."
