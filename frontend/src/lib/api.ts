@@ -3,7 +3,7 @@ import Cookies from 'js-cookie'
 
 // 创建axios实例 - 通过API Gateway访问
 const api = axios.create({
-  baseURL: process.env.API_BASE_URL || 'http://localhost:8080/api',
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || '/api',
   timeout: 300000, // 5分钟超时，适合Apify搜索
   headers: {
     'Content-Type': 'application/json',
