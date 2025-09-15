@@ -18,13 +18,13 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodGet,
-					Path:    "/health",
-					Handler: healthHandler(serverCtx),
+					Path:    "/ping",
+					Handler: pingHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
-					Path:    "/ping",
-					Handler: pingHandler(serverCtx),
+					Path:    "/health",
+					Handler: healthHandler(serverCtx),
 				},
 			}...,
 		),
@@ -37,8 +37,13 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			[]rest.Route{
 				{
 					Method:  http.MethodPost,
-					Path:    "/fetch-amazon-product-data",
-					Handler: fetchAmazonProductDataHandler(serverCtx),
+					Path:    "/products/track",
+					Handler: addProductTrackingHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/products/tracked",
+					Handler: getTrackedProductsHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
@@ -51,14 +56,14 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: getProductHistoryHandler(serverCtx),
 				},
 				{
-					Method:  http.MethodPost,
-					Path:    "/products/:product_id/refresh",
-					Handler: refreshProductDataHandler(serverCtx),
-				},
-				{
 					Method:  http.MethodDelete,
 					Path:    "/products/:product_id/track",
 					Handler: stopProductTrackingHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/products/:product_id/refresh",
+					Handler: refreshProductDataHandler(serverCtx),
 				},
 				{
 					Method:  http.MethodGet,
@@ -67,13 +72,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
-					Path:    "/products/track",
-					Handler: addProductTrackingHandler(serverCtx),
-				},
-				{
-					Method:  http.MethodGet,
-					Path:    "/products/tracked",
-					Handler: getTrackedProductsHandler(serverCtx),
+					Path:    "/products/tracked/:tracked_id/add-mock-price-history",
+					Handler: addMockPriceHistoryHandler(serverCtx),
 				},
 			}...,
 		),

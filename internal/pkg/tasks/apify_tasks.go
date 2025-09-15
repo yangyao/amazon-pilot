@@ -134,7 +134,7 @@ func (processor *ApifyTaskProcessor) HandleRefreshProductData(ctx context.Contex
 		ProductID:   payload.ProductID,
 		Price:       data.Price,
 		Currency:    data.Currency,
-		BuyBoxPrice: &data.Price,
+		BuyBoxPrice: data.BuyBoxPrice, // 使用实际的Buy Box价格，可能为nil
 		RecordedAt:  now,
 		DataSource:  "apify",
 	}
@@ -160,6 +160,39 @@ func (processor *ApifyTaskProcessor) HandleRefreshProductData(ctx context.Contex
 		return fmt.Errorf("failed to save ranking history: %w", err)
 	}
 
+	// 保存评论历史
+	reviewHistory := models.ReviewHistory{
+		ProductID:     payload.ProductID,
+		ReviewCount:   data.ReviewCount,
+		AverageRating: &data.Rating,
+		RecordedAt:    now,
+		DataSource:    "apify",
+		// 注意：Apify 没有提供详细的星级分布数据，所以其他字段使用默认值
+	}
+
+	if err := tx.Create(&reviewHistory).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to save review history: %w", err)
+	}
+
+	// 保存 BuyBox 历史
+	buyboxHistory := models.BuyBoxHistory{
+		ProductID:        payload.ProductID,
+		WinnerSeller:     &data.Seller,
+		WinnerPrice:      data.BuyBoxPrice, // 使用实际的Buy Box价格，可能为nil
+		Currency:         data.Currency,
+		IsPrime:          data.Prime,
+		IsFBA:            (data.FulfilledBy == "Amazon"), // 如果由 Amazon 配送则认为是 FBA
+		AvailabilityText: &data.Availability,
+		RecordedAt:       now,
+		DataSource:       "apify",
+	}
+
+	if err := tx.Create(&buyboxHistory).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to save buybox history: %w", err)
+	}
+
 	// 获取历史数据用于异常检测 (排除刚插入的记录)
 	var lastPrice models.PriceHistory
 	processor.db.Where("product_id = ? AND id != ?", payload.ProductID, priceHistory.ID).
@@ -170,6 +203,16 @@ func (processor *ApifyTaskProcessor) HandleRefreshProductData(ctx context.Contex
 	processor.db.Where("product_id = ? AND id != ?", payload.ProductID, rankingHistory.ID).
 		Order("recorded_at DESC").
 		First(&lastRanking)
+
+	var lastReview models.ReviewHistory
+	processor.db.Where("product_id = ? AND id != ?", payload.ProductID, reviewHistory.ID).
+		Order("recorded_at DESC").
+		First(&lastReview)
+
+	var lastBuybox models.BuyBoxHistory
+	processor.db.Where("product_id = ? AND id != ?", payload.ProductID, buyboxHistory.ID).
+		Order("recorded_at DESC").
+		First(&lastBuybox)
 
 	// 更新追踪记录的检查时间 (在事务提交前)
 	if err := tx.Table("tracked_products").Where("id = ?", payload.TrackedID).Updates(map[string]interface{}{
@@ -185,7 +228,7 @@ func (processor *ApifyTaskProcessor) HandleRefreshProductData(ctx context.Contex
 	}
 
 	// 🚀 数据保存成功，现在进行异常检测
-	processor.detectAndRecordAnomalies(ctx, payload, data, lastPrice, lastRanking, priceHistory.ID, rankingHistory.ID, now)
+	processor.detectAndRecordAnomalies(ctx, payload, data, lastPrice, lastRanking, lastReview, lastBuybox, priceHistory.ID, rankingHistory.ID, reviewHistory.ID, buyboxHistory.ID, now)
 
 	// 清理相关缓存，确保前端获取最新数据
 	processor.invalidateProductCache(ctx, payload.ASIN, payload.ProductID, payload.UserID)
@@ -196,13 +239,16 @@ func (processor *ApifyTaskProcessor) HandleRefreshProductData(ctx context.Contex
 		"bsr", data.BSR,
 		"rating", data.Rating,
 		"review_count", data.ReviewCount,
+		"seller", data.Seller,
+		"prime", data.Prime,
+		"availability", data.Availability,
 	)
 
 	return nil
 }
 
 // detectAndRecordAnomalies 检测并记录异常变化 (requirements: 价格变动>10%, BSR变动>30%)
-func (p *ApifyTaskProcessor) detectAndRecordAnomalies(ctx context.Context, payload RefreshProductDataPayload, newData apify.ProductData, lastPrice models.PriceHistory, lastRanking models.RankingHistory, newPriceID, newRankingID string, now time.Time) {
+func (p *ApifyTaskProcessor) detectAndRecordAnomalies(ctx context.Context, payload RefreshProductDataPayload, newData apify.ProductData, lastPrice models.PriceHistory, lastRanking models.RankingHistory, lastReview models.ReviewHistory, lastBuybox models.BuyBoxHistory, newPriceID, newRankingID, newReviewID, newBuyboxID string, now time.Time) {
 
 	// 获取用户设置的阈值
 	var trackedProduct models.TrackedProduct
@@ -269,65 +315,6 @@ func (p *ApifyTaskProcessor) detectAndRecordAnomalies(ctx context.Context, paylo
 		}
 	}
 
-	// 3. 评分变化检测 (questions.md要求: 評分與評論數變化)
-	if lastRanking.Rating != nil && *lastRanking.Rating > 0 && newData.Rating > 0 {
-		oldRating := *lastRanking.Rating
-		newRating := newData.Rating
-		ratingChangePercentage := math.Abs((newRating-oldRating)/oldRating) * 100
-
-		// 评分变化阈值可以设为5%（比较敏感）
-		ratingThreshold := 5.0
-		if ratingChangePercentage > ratingThreshold {
-			thresholdPtr := &ratingThreshold
-			severity := "info" // 评分变化通常是info级别
-			if ratingChangePercentage > 20 {
-				severity = "warning"
-			}
-
-			anomalyEvent := models.AnomalyEvent{
-				ProductID:        payload.ProductID,
-				ASIN:             payload.ASIN,
-				EventType:        "rating_change",
-				OldValue:         &oldRating,
-				NewValue:         &newRating,
-				ChangePercentage: &ratingChangePercentage,
-				Threshold:        thresholdPtr,
-				Severity:         severity,
-				CreatedAt:        now,
-			}
-			anomalyEvents = append(anomalyEvents, anomalyEvent)
-		}
-	}
-
-	// 4. 评论数变化检测 (questions.md要求: 評分與評論數變化)
-	if lastRanking.ReviewCount > 0 && newData.ReviewCount > 0 {
-		oldReviewCount := float64(lastRanking.ReviewCount)
-		newReviewCount := float64(newData.ReviewCount)
-		reviewChangePercentage := math.Abs((newReviewCount-oldReviewCount)/oldReviewCount) * 100
-
-		// 评论数变化阈值设为20%
-		reviewThreshold := 20.0
-		if reviewChangePercentage > reviewThreshold {
-			thresholdPtr := &reviewThreshold
-			severity := "info"
-			if reviewChangePercentage > 50 {
-				severity = "warning"
-			}
-
-			anomalyEvent := models.AnomalyEvent{
-				ProductID:        payload.ProductID,
-				ASIN:             payload.ASIN,
-				EventType:        "review_count_change",
-				OldValue:         &oldReviewCount,
-				NewValue:         &newReviewCount,
-				ChangePercentage: &reviewChangePercentage,
-				Threshold:        thresholdPtr,
-				Severity:         severity,
-				CreatedAt:        now,
-			}
-			anomalyEvents = append(anomalyEvents, anomalyEvent)
-		}
-	}
 
 	// 3. 批量保存异常事件
 	if len(anomalyEvents) > 0 {

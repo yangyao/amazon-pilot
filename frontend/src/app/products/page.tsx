@@ -7,11 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Loader2, RefreshCw, Trash2, Search, List, Package, BarChart3, Home, Star, Plus, AlertTriangle } from 'lucide-react'
+import { Loader2, RefreshCw, Trash2, Search, List, Package, BarChart3, Home, Star, Plus, AlertTriangle, TestTube } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { productAPI, type TrackedProduct, type ApifyProductData, type AnomalyEvent as APIAnomalyEvent } from '@/lib/product-api'
+import { productAPI, type TrackedProduct, type AnomalyEvent as APIAnomalyEvent } from '@/lib/product-api'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -31,19 +31,19 @@ type AddTrackingForm = z.infer<typeof addTrackingSchema>
 
 export default function ProductsPage() {
   const [tracked, setTracked] = useState<TrackedProduct[]>([])
-  const [searchResults, setSearchResults] = useState<ApifyProductData[]>([])
   const [anomalyEvents, setAnomalyEvents] = useState<APIAnomalyEvent[]>([])
   const [loading, setLoading] = useState(true)
-  const [searching, setSearching] = useState(false)
   const [loadingEvents, setLoadingEvents] = useState(false)
-  const [trackingStates, setTrackingStates] = useState<{[key: string]: boolean}>({})
   const [refreshingStates, setRefreshingStates] = useState<{[key: string]: boolean}>({})
-  const [selectedCategory, setSelectedCategory] = useState('electronics')
   const [activeTab, setActiveTab] = useState('tracked')
   const [submitting, setSubmitting] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<TrackedProduct | null>(null)
   const [historyData, setHistoryData] = useState<any>(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [mockPriceDialogOpen, setMockPriceDialogOpen] = useState(false)
+  const [selectedTrackedId, setSelectedTrackedId] = useState<string>('')
+  const [mockPrice, setMockPrice] = useState<string>('')
+  const [addingMockPrice, setAddingMockPrice] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -62,20 +62,11 @@ export default function ProductsPage() {
     }
   })
 
-  // Demo建议的类别
-  const demoCategories = [
-    { value: 'electronics', label: '电子产品' },
-    { value: 'wireless earbuds', label: '无线蓝牙耳机' },
-    { value: 'yoga mats', label: '瑜伽垫' },
-    { value: 'kitchen', label: '厨房用品' },
-    { value: 'pet supplies', label: '宠物用品' }
-  ]
 
   const menuItems = [
     { id: 'tracked', label: '已追踪产品', icon: List },
     { id: 'alerts', label: '异常警报', icon: AlertTriangle },
     { id: 'add', label: '添加产品', icon: Package },
-    { id: 'search', label: '搜索产品', icon: Search },
     { id: 'analytics', label: '数据分析', icon: BarChart3 },
   ]
 
@@ -129,67 +120,7 @@ export default function ProductsPage() {
     }
   }
 
-  const searchProducts = async () => {
-    setSearching(true)
-    try {
-      const response = await productAPI.searchProducts({
-        category: selectedCategory,
-        max_results: 10
-      })
 
-      if (response.success) {
-        setSearchResults(response.products || [])
-        // 移除搜索成功弹窗，用户能看到结果即可
-      } else {
-        throw new Error(response.message)
-      }
-    } catch (error) {
-      console.error('Failed to search products:', error)
-      toast({
-        title: "搜索失败",
-        description: error instanceof Error ? error.message : "搜索产品失败",
-        variant: "destructive"
-      })
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  const trackProduct = async (asin: string, title: string, category?: string) => {
-    setTrackingStates(prev => ({ ...prev, [asin]: true }))
-
-    try {
-      await productAPI.addTracking({
-        asin,
-        alias: title || asin,
-        category: category || selectedCategory,
-        tracking_settings: {
-          price_change_threshold: 10,
-          bsr_change_threshold: 30,
-          // update_frequency removed - fixed at daily
-        }
-      })
-
-      toast({
-        title: "添加成功",
-        description: `产品 ${asin} 已添加到追踪列表`,
-      })
-
-      // 如果在搜索页面添加了产品，切换到已追踪页面
-      if (activeTab === 'search') {
-        setActiveTab('tracked')
-      }
-      await loadTracked()
-    } catch (error) {
-      toast({
-        title: "添加失败",
-        description: error instanceof Error ? error.message : "添加追踪失败",
-        variant: "destructive"
-      })
-    } finally {
-      setTrackingStates(prev => ({ ...prev, [asin]: false }))
-    }
-  }
 
   const refreshProduct = async (productId: string, asin: string) => {
     setRefreshingStates(prev => ({ ...prev, [productId]: true }))
@@ -230,6 +161,41 @@ export default function ProductsPage() {
         description: "停止追踪失败",
         variant: "destructive"
       })
+    }
+  }
+
+  const openMockPriceDialog = (trackedId: string) => {
+    setSelectedTrackedId(trackedId)
+    setMockPrice('')
+    setMockPriceDialogOpen(true)
+  }
+
+  const addMockPriceHistory = async () => {
+    if (!mockPrice || !selectedTrackedId) return
+
+    setAddingMockPrice(true)
+    try {
+      await productAPI.addMockPriceHistory(selectedTrackedId, {
+        price: parseFloat(mockPrice),
+        currency: 'USD'
+      })
+
+      toast({
+        title: "测试价格已添加",
+        description: `已添加测试价格 $${mockPrice}，现在可以执行刷新来模拟异常检测`,
+      })
+
+      setMockPriceDialogOpen(false)
+      setMockPrice('')
+      setSelectedTrackedId('')
+    } catch (error: any) {
+      toast({
+        title: "添加失败",
+        description: error.response?.data?.message || "添加测试价格失败",
+        variant: "destructive"
+      })
+    } finally {
+      setAddingMockPrice(false)
     }
   }
 
@@ -434,9 +400,9 @@ export default function ProductsPage() {
                 <h2 className="text-2xl font-bold">已追踪产品</h2>
                 <p className="text-muted-foreground">管理和刷新已追踪的 Amazon 产品数据</p>
               </div>
-              <Button onClick={() => setActiveTab('search')} variant="outline">
-                <Search className="w-4 h-4 mr-2" />
-                搜索新产品
+              <Button onClick={() => setActiveTab('add')} variant="outline">
+                <Plus className="w-4 h-4 mr-2" />
+                添加新产品
               </Button>
             </div>
 
@@ -448,8 +414,8 @@ export default function ProductsPage() {
               <Card>
                 <CardContent className="py-8 text-center">
                   <p className="text-muted-foreground mb-4">还没有追踪任何产品</p>
-                  <Button onClick={() => setActiveTab('search')}>
-                    开始搜索产品
+                  <Button onClick={() => setActiveTab('add')}>
+                    添加产品追踪
                   </Button>
                 </CardContent>
               </Card>
@@ -468,6 +434,7 @@ export default function ProductsPage() {
                         <TableHead>ASIN</TableHead>
                         <TableHead>标题/别名</TableHead>
                         <TableHead>当前价格</TableHead>
+                        <TableHead>Buy Box价格</TableHead>
                         <TableHead>评分</TableHead>
                         <TableHead>BSR</TableHead>
                         <TableHead>状态</TableHead>
@@ -485,6 +452,34 @@ export default function ProductsPage() {
                               {product.alias && product.title && (
                                 <div className="text-sm text-muted-foreground">{product.alias}</div>
                               )}
+                              {/* 显示 bullet points 预览 */}
+                              {product.bullet_points && product.bullet_points.length > 0 && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="link" className="h-auto p-0 text-xs text-blue-600 mt-1">
+                                      查看产品特性 ({product.bullet_points.length})
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-2xl">
+                                    <DialogHeader>
+                                      <DialogTitle>{product.title || product.asin} - 产品特性</DialogTitle>
+                                      <DialogDescription>
+                                        Amazon 产品的主要特性和卖点
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="mt-4">
+                                      <ul className="space-y-2">
+                                        {product.bullet_points.map((point, index) => (
+                                          <li key={index} className="flex items-start gap-2">
+                                            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
+                                            <span className="text-sm leading-relaxed">{point}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -497,12 +492,28 @@ export default function ProductsPage() {
                             )}
                           </TableCell>
                           <TableCell>
+                            {product.buy_box_price && product.buy_box_price > 0 ? (
+                              <div className="font-medium text-blue-600">
+                                {product.currency} {product.buy_box_price.toFixed(2)}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">N/A</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
                             {product.rating ? (
                               <div className="flex items-center gap-1">
                                 <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                                 <span>{product.rating}</span>
                                 <span className="text-sm text-muted-foreground">
-                                  ({product.review_count})
+                                  ({product.review_count?.toLocaleString() || 0})
+                                </span>
+                              </div>
+                            ) : product.review_count ? (
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-muted-foreground">暂无评分</span>
+                                <span className="text-sm text-muted-foreground">
+                                  ({product.review_count.toLocaleString()} 条评论)
                                 </span>
                               </div>
                             ) : (
@@ -531,6 +542,7 @@ export default function ProductsPage() {
                                 variant="outline"
                                 onClick={() => refreshProduct(product.id, product.asin)}
                                 disabled={refreshingStates[product.id]}
+                                title="刷新数据"
                               >
                                 {refreshingStates[product.id] ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -540,8 +552,18 @@ export default function ProductsPage() {
                               </Button>
                               <Button
                                 size="sm"
+                                variant="outline"
+                                onClick={() => openMockPriceDialog(product.id)}
+                                className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                                title="添加测试价格（用于异常检测测试）"
+                              >
+                                <TestTube className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
                                 variant="destructive"
                                 onClick={() => stopTracking(product.id, product.asin)}
+                                title="停止追踪"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -667,121 +689,6 @@ export default function ProductsPage() {
           </div>
         )
 
-      case 'search':
-        return (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-2">搜索 Amazon 产品</h2>
-              <p className="text-muted-foreground">按类目搜索 Amazon 最畅销产品 (基于 questions.md 建议的Demo类别)</p>
-            </div>
-
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>类目搜索</CardTitle>
-                <CardDescription>
-                  选择类目搜索 Amazon Best Sellers，搜索需要约30-60秒时间
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-4">
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="flex h-10 w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                  >
-                    {demoCategories.map((cat) => (
-                      <option key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    onClick={searchProducts}
-                    disabled={searching}
-                    className="min-w-[140px]"
-                  >
-                    {searching ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        搜索中...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="w-4 h-4 mr-2" />
-                        搜索产品
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 搜索结果 */}
-            {searchResults.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>搜索结果 ({searchResults.length})</span>
-                    <Badge variant="secondary">来自 Amazon Best Sellers</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>ASIN</TableHead>
-                        <TableHead>标题</TableHead>
-                        <TableHead>品牌</TableHead>
-                        <TableHead>价格</TableHead>
-                        <TableHead>BSR</TableHead>
-                        <TableHead>评分</TableHead>
-                        <TableHead>操作</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {searchResults.map((product) => (
-                        <TableRow key={product.asin}>
-                          <TableCell className="font-mono text-sm">{product.asin}</TableCell>
-                          <TableCell>{product.title || product.asin}</TableCell>
-                          <TableCell>{product.brand || 'N/A'}</TableCell>
-                          <TableCell>{product.price ? `$${product.price}` : 'N/A'}</TableCell>
-                          <TableCell>{product.bsr || 'N/A'}</TableCell>
-                          <TableCell>
-                            {product.rating ? (
-                              <div className="flex items-center">
-                                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 mr-1" />
-                                {product.rating}
-                                <span className="text-sm text-muted-foreground ml-1">
-                                  ({product.review_count})
-                                </span>
-                              </div>
-                            ) : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              onClick={() => trackProduct(product.asin, product.title, product.category)}
-                              disabled={trackingStates[product.asin]}
-                            >
-                              {trackingStates[product.asin] ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  添加中...
-                                </>
-                              ) : (
-                                '加入跟踪'
-                              )}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )
 
       case 'analytics':
         return (
@@ -814,6 +721,7 @@ export default function ProductsPage() {
                           <TableHead>产品信息</TableHead>
                           <TableHead>ASIN</TableHead>
                           <TableHead>当前价格</TableHead>
+                          <TableHead>Buy Box价格</TableHead>
                           <TableHead>评分</TableHead>
                           <TableHead>BSR排名</TableHead>
                           <TableHead>状态</TableHead>
@@ -837,6 +745,34 @@ export default function ProductsPage() {
                                   {product.brand && (
                                     <Badge variant="outline" className="text-xs mt-1">{product.brand}</Badge>
                                   )}
+                                  {/* 显示 bullet points 链接 */}
+                                  {product.bullet_points && product.bullet_points.length > 0 && (
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button variant="link" className="h-auto p-0 text-xs text-blue-600 mt-1">
+                                          产品特性 ({product.bullet_points.length})
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-2xl">
+                                        <DialogHeader>
+                                          <DialogTitle>{product.title || product.asin} - 产品特性</DialogTitle>
+                                          <DialogDescription>
+                                            Amazon 产品的主要特性和卖点
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="mt-4">
+                                          <ul className="space-y-2">
+                                            {product.bullet_points.map((point, index) => (
+                                              <li key={index} className="flex items-start gap-2">
+                                                <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></span>
+                                                <span className="text-sm leading-relaxed">{point}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  )}
                                 </div>
                               </div>
                             </TableCell>
@@ -851,12 +787,28 @@ export default function ProductsPage() {
                               )}
                             </TableCell>
                             <TableCell>
+                              {product.buy_box_price && product.buy_box_price > 0 ? (
+                                <span className="font-bold text-blue-600">
+                                  {product.currency} {product.buy_box_price.toFixed(2)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">N/A</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
                               {product.rating ? (
                                 <div className="flex items-center gap-1">
                                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                                   <span>{product.rating}</span>
                                   <span className="text-sm text-muted-foreground">
-                                    ({product.review_count?.toLocaleString()})
+                                    ({product.review_count?.toLocaleString() || 0})
+                                  </span>
+                                </div>
+                              ) : product.review_count ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm text-muted-foreground">暂无评分</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    ({product.review_count.toLocaleString()} 条评论)
                                   </span>
                                 </div>
                               ) : (
@@ -1137,11 +1089,15 @@ export default function ProductsPage() {
                             <p className="font-bold text-green-600">
                               {product.currency} {product.current_price.toFixed(2)}
                             </p>
-                            {product.rating && (
+                            {product.rating ? (
                               <p className="text-xs text-muted-foreground">
-                                ⭐ {product.rating} ({product.review_count})
+                                ⭐ {product.rating} ({product.review_count?.toLocaleString() || 0})
                               </p>
-                            )}
+                            ) : product.review_count ? (
+                              <p className="text-xs text-muted-foreground">
+                                暂无评分 ({product.review_count.toLocaleString()} 条评论)
+                              </p>
+                            ) : null}
                           </div>
                         </div>
                       ))}
@@ -1209,6 +1165,61 @@ export default function ProductsPage() {
           {renderContent()}
         </div>
       </div>
+
+      {/* 测试价格对话框 */}
+      <Dialog open={mockPriceDialogOpen} onOpenChange={setMockPriceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>添加测试价格</DialogTitle>
+            <DialogDescription>
+              为产品添加一个测试价格历史记录，用于模拟异常检测场景。
+              建议设置与当前价格差异较大的值（超过10%变化）。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="mock_price">测试价格 (USD)</Label>
+              <Input
+                id="mock_price"
+                type="number"
+                step="0.01"
+                placeholder="例如: 99.99"
+                value={mockPrice}
+                onChange={(e) => setMockPrice(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                价格变动超过阈值时会触发异常检测。建议输入与当前价格相差10%以上的价格。
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                onClick={addMockPriceHistory}
+                disabled={addingMockPrice || !mockPrice}
+                className="flex-1"
+              >
+                {addingMockPrice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    添加中...
+                  </>
+                ) : (
+                  <>
+                    <TestTube className="w-4 h-4 mr-2" />
+                    添加测试价格
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setMockPriceDialogOpen(false)}
+                disabled={addingMockPrice}
+              >
+                取消
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

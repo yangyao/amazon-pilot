@@ -38,7 +38,7 @@ type (
 		Pagination Pagination       `json:"pagination"`
 	}
 	TrackedProduct {
-		ID               string           `json:"id"` // tracked_product.id
+		ID               string           `json:"id"`         // tracked_product.id
 		ProductID        string           `json:"product_id"` // product.id (用于竞品分析)
 		ASIN             string           `json:"asin"`
 		Title            string           `json:"title,omitempty"`
@@ -139,12 +139,23 @@ type (
 		Message     string         `json:"message"`
 		ProductData TrackedProduct `json:"product_data,omitempty"`
 	}
+	// Add mock price history for testing anomaly detection
+	AddMockPriceHistoryRequest {
+		TrackedID string  `path:"tracked_id"`
+		Price     float64 `json:"price"`
+		Currency  string  `json:"currency,optional"`
+	}
+	AddMockPriceHistoryResponse {
+		Success   bool   `json:"success"`
+		Message   string `json:"message"`
+		HistoryID string `json:"history_id"`
+	}
 	// Anomaly events (异常检测事件 - 价格变动>10%, BSR变动>30%等)
 	GetAnomalyEventsRequest {
 		Page      int    `form:"page,default=1"`
 		Limit     int    `form:"limit,default=20"`
 		EventType string `form:"event_type,optional"` // price_change, bsr_change, rating_change, review_count_change, buybox_change
-		Severity  string `form:"severity,optional"` // info, warning, critical
+		Severity  string `form:"severity,optional"`   // info, warning, critical
 		ASIN      string `form:"asin,optional"`
 	}
 	GetAnomalyEventsResponse {
@@ -176,36 +187,6 @@ type (
 		Version string `json:"version"`
 		Uptime  int64  `json:"uptime"`
 	}
-	// Apify data fetching
-	FetchProductDataRequest {
-		ASINs []string `json:"asins"`
-		Force bool     `json:"force,optional"`
-	}
-	FetchProductDataResponse {
-		Success       bool               `json:"success"`
-		ProductsCount int                `json:"products_count"`
-		Message       string             `json:"message"`
-		Products      []ApifyProductData `json:"products,omitempty"`
-	}
-	ApifyProductData {
-		ASIN         string   `json:"asin"`
-		Title        string   `json:"title"`
-		Brand        string   `json:"brand,omitempty"`
-		Category     string   `json:"category,omitempty"`
-		Price        float64  `json:"price"`
-		Currency     string   `json:"currency"`
-		Rating       float64  `json:"rating,omitempty"`
-		ReviewCount  int      `json:"review_count,omitempty"`
-		BSR          int      `json:"bsr,omitempty"`
-		BSRCategory  string   `json:"bsr_category,omitempty"`
-		Images       []string `json:"images,omitempty"`
-		Description  string   `json:"description,omitempty"`
-		BulletPoints []string `json:"bullet_points,omitempty"`
-		Availability string   `json:"availability,omitempty"`
-		Prime        bool     `json:"prime,omitempty"`
-		Seller       string   `json:"seller,omitempty"`
-		ScrapedAt    string   `json:"scraped_at"`
-	}
 )
 
 @server (
@@ -227,10 +208,6 @@ service product-api {
 	middleware: RateLimitMiddleware
 )
 service product-api {
-	// Apify data fetching
-	@handler fetchAmazonProductData
-	post /fetch-amazon-product-data (FetchProductDataRequest) returns (FetchProductDataResponse)
-
 	// Product tracking endpoints (JWT required)
 	@handler addProductTracking
 	post /products/track (AddTrackingRequest) returns (AddTrackingResponse)
@@ -252,5 +229,7 @@ service product-api {
 
 	@handler getAnomalyEvents
 	get /products/anomaly-events (GetAnomalyEventsRequest) returns (GetAnomalyEventsResponse)
-}
 
+	@handler addMockPriceHistory
+	post /products/tracked/:tracked_id/add-mock-price-history (AddMockPriceHistoryRequest) returns (AddMockPriceHistoryResponse)
+}

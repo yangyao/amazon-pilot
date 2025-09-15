@@ -105,12 +105,41 @@ func (l *GetTrackedProductsLogic) GetTrackedProducts(req *types.GetTrackedReques
 		if tp.Alias != nil {
 			alias = *tp.Alias
 		}
-		
+
+		// 安全获取产品的其他字段
+		brand := ""
+		if tp.Product.Brand != nil {
+			brand = *tp.Product.Brand
+		}
+
+		category := ""
+		if tp.Product.Category != nil {
+			category = *tp.Product.Category
+		}
+
+		description := ""
+		if tp.Product.Description != nil {
+			description = *tp.Product.Description
+		}
+
+		// 解析 images 和 bullet_points JSON 字段
+		var images []string
+		if tp.Product.Images != nil {
+			json.Unmarshal(tp.Product.Images, &images)
+		}
+
+		var bulletPoints []string
+		if tp.Product.BulletPoints != nil {
+			json.Unmarshal(tp.Product.BulletPoints, &bulletPoints)
+		}
+
 		product := types.TrackedProduct{
 			ID:           tp.ID,
 			ProductID:    tp.ProductID, // 添加product_id字段用于竞品分析
 			ASIN:         tp.Product.ASIN,
 			Title:        title,
+			Brand:        brand,
+			Category:     category,
 			Alias:        alias,
 			CurrentPrice: latestPrice.Price,
 			Currency:     latestPrice.Currency,
@@ -120,6 +149,9 @@ func (l *GetTrackedProductsLogic) GetTrackedProducts(req *types.GetTrackedReques
 			BuyBoxPrice:  latestPrice.Price, // 使用当前价格作为BuyBox价格
 			LastUpdated:  tp.Product.LastUpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 			Status:       status,
+			Images:       images,
+			Description:  description,
+			BulletPoints: bulletPoints,
 		}
 		
 		// 安全设置BSR和Rating

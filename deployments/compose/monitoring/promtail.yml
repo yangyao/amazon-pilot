@@ -9,19 +9,29 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: amazon-pilot-services
+  # Docker 容器日志
+  - job_name: docker
     static_configs:
       - targets:
           - localhost
         labels:
-          job: amazon-pilot-services
-          __path__: /var/app/logs/*.log
+          job: docker
+          __path__: /var/lib/docker/containers/*/*log
     pipeline_stages:
-      - regex:
-          expression: '(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.\d]*[+-]\d{2}:\d{2})\s+(?P<level>\w+)\s+(?P<message>.*)'
-      - labels:
-          level:
-          timestamp:
+      - docker: {}
       - timestamp:
-          source: timestamp
-          format: RFC3339
+          source: time
+          format: RFC3339Nano
+      # 过滤太旧的日志（可选）
+      - drop:
+          older_than: 720h  # 丢弃超过30天的日志
+          drop_counter_reason: "too_old"
+
+  # 系统日志（如果需要）
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: system
+          __path__: /var/log/*.log

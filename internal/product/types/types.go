@@ -10,111 +10,16 @@ type AddTrackingRequest struct {
 	Settings TrackingSettings `json:"tracking_settings,optional"`
 }
 
+type TrackingSettings struct {
+	PriceChangeThreshold float64 `json:"price_change_threshold,default=10"`
+	BSRChangeThreshold   float64 `json:"bsr_change_threshold,default=30"`
+}
+
 type AddTrackingResponse struct {
 	ProductID  string `json:"product_id"`
 	ASIN       string `json:"asin"`
 	Status     string `json:"status"`
 	NextUpdate string `json:"next_update"`
-}
-
-type Alert struct {
-	Type      string `json:"type"`
-	Message   string `json:"message"`
-	CreatedAt string `json:"created_at"`
-}
-
-type AnomalyEvent struct {
-	ID               string  `json:"id"`
-	ProductID        string  `json:"product_id"`
-	ASIN             string  `json:"asin"`
-	EventType        string  `json:"event_type"`
-	OldValue         float64 `json:"old_value,omitempty"`
-	NewValue         float64 `json:"new_value,omitempty"`
-	ChangePercentage float64 `json:"change_percentage,omitempty"`
-	Threshold        float64 `json:"threshold,omitempty"`
-	Severity         string  `json:"severity"`
-	CreatedAt        string  `json:"created_at"`
-	ProductTitle     string  `json:"product_title,omitempty"`
-}
-
-type ApifyProductData struct {
-	ASIN         string   `json:"asin"`
-	Title        string   `json:"title"`
-	Brand        string   `json:"brand,omitempty"`
-	Category     string   `json:"category,omitempty"`
-	Price        float64  `json:"price"`
-	Currency     string   `json:"currency"`
-	Rating       float64  `json:"rating,omitempty"`
-	ReviewCount  int      `json:"review_count,omitempty"`
-	BSR          int      `json:"bsr,omitempty"`
-	BSRCategory  string   `json:"bsr_category,omitempty"`
-	Images       []string `json:"images,omitempty"`
-	Description  string   `json:"description,omitempty"`
-	BulletPoints []string `json:"bullet_points,omitempty"`
-	Availability string   `json:"availability,omitempty"`
-	Prime        bool     `json:"prime,omitempty"`
-	Seller       string   `json:"seller,omitempty"`
-	ScrapedAt    string   `json:"scraped_at"`
-}
-
-type FetchProductDataRequest struct {
-	ASINs []string `json:"asins"`
-	Force bool     `json:"force,optional"`
-}
-
-type FetchProductDataResponse struct {
-	Success       bool               `json:"success"`
-	ProductsCount int                `json:"products_count"`
-	Message       string             `json:"message"`
-	Products      []ApifyProductData `json:"products,omitempty"`
-}
-
-type GetAnomalyEventsRequest struct {
-	Page      int    `form:"page,default=1"`
-	Limit     int    `form:"limit,default=20"`
-	EventType string `form:"event_type,optional"` // price_change, bsr_change, rating_change, review_count_change, buybox_change
-	Severity  string `form:"severity,optional"`   // info, warning, critical
-	ASIN      string `form:"asin,optional"`
-}
-
-type GetAnomalyEventsResponse struct {
-	Events     []AnomalyEvent `json:"events"`
-	Pagination Pagination     `json:"pagination"`
-}
-
-type GetHistoryRequest struct {
-	ProductID string `path:"product_id"`
-	Metric    string `form:"metric,optional"`
-	Period    string `form:"period,optional"`
-}
-
-type GetHistoryResponse struct {
-	ProductID string        `json:"product_id"`
-	Metric    string        `json:"metric"`
-	Period    string        `json:"period"`
-	Data      []HistoryData `json:"data"`
-}
-
-type GetProductRequest struct {
-	ProductID string `path:"product_id"`
-}
-
-type GetProductResponse struct {
-	ID              string                 `json:"id"`
-	ASIN            string                 `json:"asin"`
-	Title           string                 `json:"title,omitempty"`
-	Description     string                 `json:"description,omitempty"`
-	Brand           string                 `json:"brand,omitempty"`
-	Category        string                 `json:"category,omitempty"`
-	CurrentPrice    float64                `json:"current_price"`
-	Currency        string                 `json:"currency"`
-	BSR             int                    `json:"bsr,omitempty"`
-	Rating          float64                `json:"rating,omitempty"`
-	ReviewCount     int                    `json:"review_count"`
-	Images          []string               `json:"images,omitempty"`
-	BulletPoints    []string               `json:"bullet_points,omitempty"`
-	TrackingHistory TrackingHistorySummary `json:"tracking_history"`
-	Alerts          []Alert                `json:"alerts,omitempty"`
 }
 
 type GetTrackedRequest struct {
@@ -127,60 +32,6 @@ type GetTrackedRequest struct {
 type GetTrackedResponse struct {
 	Tracked    []TrackedProduct `json:"tracked"`
 	Pagination Pagination       `json:"pagination"`
-}
-
-type HealthResponse struct {
-	Service string `json:"service"`
-	Status  string `json:"status"`
-	Version string `json:"version"`
-	Uptime  int64  `json:"uptime"`
-}
-
-type HistoryData struct {
-	Date     string  `json:"date"`
-	Value    float64 `json:"value"`
-	Currency string  `json:"currency,omitempty"`
-}
-
-type HistorySummary struct {
-	PriceChanges24h   float64 `json:"price_changes_24h"`
-	BSRChanges24h     float64 `json:"bsr_changes_24h"`
-	RatingChanges24h  float64 `json:"rating_changes_24h"`
-	TotalPriceRecords int     `json:"total_price_records"`
-	TotalBSRRecords   int     `json:"total_bsr_records"`
-	FirstRecordedAt   string  `json:"first_recorded_at,omitempty"`
-	LastPriceUpdate   string  `json:"last_price_update,omitempty"`
-}
-
-type Pagination struct {
-	Page       int `json:"page"`
-	Limit      int `json:"limit"`
-	Total      int `json:"total"`
-	TotalPages int `json:"total_pages"`
-}
-
-type PingResponse struct {
-	Status    string `json:"status"`
-	Message   string `json:"message"`
-	Timestamp int64  `json:"timestamp"`
-}
-
-type RefreshProductDataRequest struct {
-	ProductID string `path:"product_id"`
-}
-
-type RefreshProductDataResponse struct {
-	Success     bool           `json:"success"`
-	Message     string         `json:"message"`
-	ProductData TrackedProduct `json:"product_data,omitempty"`
-}
-
-type StopTrackingRequest struct {
-	ProductID string `path:"product_id"`
-}
-
-type StopTrackingResponse struct {
-	Message string `json:"message"`
 }
 
 type TrackedProduct struct {
@@ -207,13 +58,142 @@ type TrackedProduct struct {
 	HistorySummary   HistorySummary   `json:"history_summary,omitempty"`
 }
 
+type HistorySummary struct {
+	PriceChanges24h   float64 `json:"price_changes_24h"`
+	BSRChanges24h     float64 `json:"bsr_changes_24h"`
+	RatingChanges24h  float64 `json:"rating_changes_24h"`
+	TotalPriceRecords int     `json:"total_price_records"`
+	TotalBSRRecords   int     `json:"total_bsr_records"`
+	FirstRecordedAt   string  `json:"first_recorded_at,omitempty"`
+	LastPriceUpdate   string  `json:"last_price_update,omitempty"`
+}
+
+type Pagination struct {
+	Page       int `json:"page"`
+	Limit      int `json:"limit"`
+	Total      int `json:"total"`
+	TotalPages int `json:"total_pages"`
+}
+
+type GetProductRequest struct {
+	ProductID string `path:"product_id"`
+}
+
+type GetProductResponse struct {
+	ID              string                 `json:"id"`
+	ASIN            string                 `json:"asin"`
+	Title           string                 `json:"title,omitempty"`
+	Description     string                 `json:"description,omitempty"`
+	Brand           string                 `json:"brand,omitempty"`
+	Category        string                 `json:"category,omitempty"`
+	CurrentPrice    float64                `json:"current_price"`
+	Currency        string                 `json:"currency"`
+	BSR             int                    `json:"bsr,omitempty"`
+	Rating          float64                `json:"rating,omitempty"`
+	ReviewCount     int                    `json:"review_count"`
+	Images          []string               `json:"images,omitempty"`
+	BulletPoints    []string               `json:"bullet_points,omitempty"`
+	TrackingHistory TrackingHistorySummary `json:"tracking_history"`
+	Alerts          []Alert                `json:"alerts,omitempty"`
+}
+
 type TrackingHistorySummary struct {
 	PriceChanges  int `json:"price_changes"`
 	BSRChanges    int `json:"bsr_changes"`
 	RatingChanges int `json:"rating_changes"`
 }
 
-type TrackingSettings struct {
-	PriceChangeThreshold float64 `json:"price_change_threshold,default=10"`
-	BSRChangeThreshold   float64 `json:"bsr_change_threshold,default=30"`
+type Alert struct {
+	Type      string `json:"type"`
+	Message   string `json:"message"`
+	CreatedAt string `json:"created_at"`
+}
+
+type GetHistoryRequest struct {
+	ProductID string `path:"product_id"`
+	Metric    string `form:"metric,optional"`
+	Period    string `form:"period,optional"`
+}
+
+type GetHistoryResponse struct {
+	ProductID string        `json:"product_id"`
+	Metric    string        `json:"metric"`
+	Period    string        `json:"period"`
+	Data      []HistoryData `json:"data"`
+}
+
+type HistoryData struct {
+	Date     string  `json:"date"`
+	Value    float64 `json:"value"`
+	Currency string  `json:"currency,omitempty"`
+}
+
+type StopTrackingRequest struct {
+	ProductID string `path:"product_id"`
+}
+
+type StopTrackingResponse struct {
+	Message string `json:"message"`
+}
+
+type RefreshProductDataRequest struct {
+	ProductID string `path:"product_id"`
+}
+
+type RefreshProductDataResponse struct {
+	Success     bool           `json:"success"`
+	Message     string         `json:"message"`
+	ProductData TrackedProduct `json:"product_data,omitempty"`
+}
+
+type AddMockPriceHistoryRequest struct {
+	TrackedID string  `path:"tracked_id"`
+	Price     float64 `json:"price"`
+	Currency  string  `json:"currency,optional"`
+}
+
+type AddMockPriceHistoryResponse struct {
+	Success   bool   `json:"success"`
+	Message   string `json:"message"`
+	HistoryID string `json:"history_id"`
+}
+
+type GetAnomalyEventsRequest struct {
+	Page      int    `form:"page,default=1"`
+	Limit     int    `form:"limit,default=20"`
+	EventType string `form:"event_type,optional"` // price_change, bsr_change, rating_change, review_count_change, buybox_change
+	Severity  string `form:"severity,optional"`   // info, warning, critical
+	ASIN      string `form:"asin,optional"`
+}
+
+type GetAnomalyEventsResponse struct {
+	Events     []AnomalyEvent `json:"events"`
+	Pagination Pagination     `json:"pagination"`
+}
+
+type AnomalyEvent struct {
+	ID               string  `json:"id"`
+	ProductID        string  `json:"product_id"`
+	ASIN             string  `json:"asin"`
+	EventType        string  `json:"event_type"`
+	OldValue         float64 `json:"old_value,omitempty"`
+	NewValue         float64 `json:"new_value,omitempty"`
+	ChangePercentage float64 `json:"change_percentage,omitempty"`
+	Threshold        float64 `json:"threshold,omitempty"`
+	Severity         string  `json:"severity"`
+	CreatedAt        string  `json:"created_at"`
+	ProductTitle     string  `json:"product_title,omitempty"`
+}
+
+type PingResponse struct {
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+type HealthResponse struct {
+	Service string `json:"service"`
+	Status  string `json:"status"`
+	Version string `json:"version"`
+	Uptime  int64  `json:"uptime"`
 }

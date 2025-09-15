@@ -8,6 +8,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"amazonpilot/internal/pkg/logger"
@@ -44,6 +47,7 @@ type ProductData struct {
 	Prime        bool      `json:"prime,omitempty"`
 	Seller       string    `json:"soldBy,omitempty"`
 	FulfilledBy  string    `json:"fulfilledBy,omitempty"`
+	BuyBoxPrice  *float64  `json:"buyBoxPrice,omitempty"`  // 标准化后的Buy Box价格
 	ScrapedAt    time.Time `json:"scrapedAt"`
 	URL          string    `json:"url,omitempty"`
 	StatusCode   int       `json:"statusCode,omitempty"`
@@ -301,8 +305,36 @@ type ApifyResponseWithFeatures struct {
 	Prime        bool     `json:"prime,omitempty"`
 	Seller       string   `json:"soldBy,omitempty"`
 	FulfilledBy  string   `json:"fulfilledBy,omitempty"`
+	BuyBoxUsed   *float64 `json:"buyBoxUsed,omitempty"`   // Apify返回的Buy Box价格
 	URL          string   `json:"url,omitempty"`
 	StatusCode   int      `json:"statusCode,omitempty"`
+}
+
+// parseRatingFromText 从文本中解析评分数字，例如 "4.8 out of 5 stars" -> 4.8
+func parseRatingFromText(ratingText string) float64 {
+	if ratingText == "" {
+		return 0
+	}
+
+	// 使用正则表达式提取数字，匹配类似 "4.8 out of 5 stars" 的格式
+	re := regexp.MustCompile(`^(\d+\.?\d*)\s+out\s+of\s+\d+\s+stars?`)
+	matches := re.FindStringSubmatch(strings.TrimSpace(ratingText))
+
+	if len(matches) >= 2 {
+		if rating, err := strconv.ParseFloat(matches[1], 64); err == nil {
+			return rating
+		}
+	}
+
+	// 如果正则匹配失败，尝试直接解析开头的数字
+	parts := strings.Fields(ratingText)
+	if len(parts) > 0 {
+		if rating, err := strconv.ParseFloat(parts[0], 64); err == nil {
+			return rating
+		}
+	}
+
+	return 0
 }
 
 // NormalizeApifyResponse 标准化 Apify 响应，处理字段名差异
@@ -314,6 +346,12 @@ func NormalizeApifyResponse(rawJSON []byte) (*ProductData, error) {
 
 	// 直接使用 features 字段（这是 API 实际返回的字段）
 	bulletPoints := response.Features
+
+	// 处理评分 - 如果 rating 字段为空或0，尝试从 productRating 解析
+	rating := response.Rating
+	if rating == 0 && response.ProductRating != "" {
+		rating = parseRatingFromText(response.ProductRating)
+	}
 
 	// 设置抓取时间
 	now := time.Now()
@@ -327,7 +365,7 @@ func NormalizeApifyResponse(rawJSON []byte) (*ProductData, error) {
 		Price:        response.Price,
 		RetailPrice:  response.RetailPrice,
 		Currency:     response.Currency,
-		Rating:       response.Rating,
+		Rating:       rating,  // 使用解析后的评分
 		ProductRating: response.ProductRating,
 		ReviewCount:  response.ReviewCount,
 		BSR:          response.BSR,
@@ -339,6 +377,7 @@ func NormalizeApifyResponse(rawJSON []byte) (*ProductData, error) {
 		Prime:        response.Prime,
 		Seller:       response.Seller,
 		FulfilledBy:  response.FulfilledBy,
+		BuyBoxPrice:  response.BuyBoxUsed,  // 映射buyBoxUsed到BuyBoxPrice
 		ScrapedAt:    now,
 		URL:          response.URL,
 		StatusCode:   response.StatusCode,

@@ -35,6 +35,8 @@ export interface TrackedProduct {
   review_count: number
   buy_box_price?: number
   images?: string[]
+  bullet_points?: string[]
+  description?: string
   last_updated: string
   status: string
 }
@@ -49,37 +51,6 @@ export interface GetTrackedResponse {
   }
 }
 
-export interface SearchProductsRequest {
-  category: string
-  max_results?: number
-}
-
-export interface SearchProductsResponse {
-  success: boolean
-  products_count: number
-  message: string
-  products?: ApifyProductData[]
-}
-
-export interface ApifyProductData {
-  asin: string
-  title: string
-  brand?: string
-  category?: string
-  price: number
-  currency: string
-  rating?: number
-  review_count?: number
-  bsr?: number
-  bsr_category?: string
-  images?: string[]
-  description?: string
-  bullet_points?: string[]
-  availability?: string
-  prime?: boolean
-  seller?: string
-  scraped_at: string
-}
 
 // Change Events types
 export interface AnomalyEvent {
@@ -144,9 +115,6 @@ export const productAPI = {
   }) =>
     api.get(`/product/products/${productId}/history`, { params }).then(res => res.data),
 
-  // 搜索产品按类目
-  searchProducts: (data: SearchProductsRequest): Promise<SearchProductsResponse> =>
-    api.post('/product/search-products', data).then(res => res.data),
 
   // 刷新产品数据
   refreshData: (productId: string) =>
@@ -162,4 +130,8 @@ export const productAPI = {
   // 获取异常变化事件
   getAnomalyEvents: (params?: GetAnomalyEventsRequest): Promise<GetAnomalyEventsResponse> =>
     api.get('/product/products/anomaly-events', { params }).then(res => res.data),
+
+  // 添加模拟价格历史（测试用）
+  addMockPriceHistory: (trackedId: string, data: { price: number; currency?: string }) =>
+    api.post(`/product/products/tracked/${trackedId}/add-mock-price-history`, data).then(res => res.data),
 }

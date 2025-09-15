@@ -10,16 +10,16 @@ import (
 	"amazonpilot/internal/pkg/utils"
 )
 
-func fetchAmazonProductDataHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func addMockPriceHistoryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.FetchProductDataRequest
+		var req types.AddMockPriceHistoryRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			utils.HandleError(w, err)
 			return
 		}
 
-		l := logic.NewFetchAmazonProductDataLogic(r.Context(), svcCtx)
-		resp, err := l.FetchAmazonProductData(&req)
+		l := logic.NewAddMockPriceHistoryLogic(r.Context(), svcCtx)
+		resp, err := l.AddMockPriceHistory(&req)
 		if err != nil {
 			utils.HandleError(w, err)
 		} else {
