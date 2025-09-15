@@ -120,26 +120,9 @@ func (processor *ApifyTaskProcessor) HandleRefreshProductData(ctx context.Contex
 		}
 	}()
 
-	// 更新产品基础信息，包含完整的Apify数据映射
-	updates := map[string]interface{}{
-		"title":           data.Title,
-		"brand":           data.Brand,
-		"category":        data.Category,
-		"description":     data.Description,
-		"last_updated_at": now,
-	}
-
-	// 映射bullet points (Apify的features -> 数据库的bullet_points)
-	if len(data.BulletPoints) > 0 {
-		bulletPointsJSON, _ := json.Marshal(data.BulletPoints)
-		updates["bullet_points"] = bulletPointsJSON
-	}
-
-	// 映射图片URLs
-	if len(data.Images) > 0 {
-		imagesJSON, _ := json.Marshal(data.Images)
-		updates["images"] = imagesJSON
-	}
+	// 使用标准化的映射函数处理数据
+	updates := MapApifyDataToProduct(&data, nil)
+	updates["last_updated_at"] = now
 
 	if err := tx.Table("products").Where("id = ?", payload.ProductID).Updates(updates).Error; err != nil {
 		tx.Rollback()
@@ -392,25 +375,40 @@ func getEventSummary(events []models.AnomalyEvent) string {
 	return strings.Join(summary, ",")
 }
 
-// invalidateProductCache 清理产品相关缓存 (简化版本)
+// invalidateProductCache 清理产品相关缓存
 func (p *ApifyTaskProcessor) invalidateProductCache(ctx context.Context, asin, productID, userID string) {
-	// 使用已配置的Redis客户端进行缓存清理
-	defer p.redisClient.Close()
-
 	// 清理产品基本信息缓存
 	productCacheKey := fmt.Sprintf("amazon_pilot:product:%s", asin)
-	p.redisClient.Del(ctx, productCacheKey)
-
-	// 清理用户追踪产品列表缓存
-	trackedCacheKey := fmt.Sprintf("amazon_pilot:tracked:%s", userID)
-	p.redisClient.Del(ctx, trackedCacheKey)
+	if err := p.redisClient.Del(ctx, productCacheKey).Err(); err != nil {
+		p.logger.Error(ctx, "Failed to delete product cache", "key", productCacheKey, "error", err)
+	}
 
 	// 清理最新价格数据缓存
 	priceCacheKey := fmt.Sprintf("amazon_pilot:price:%s:latest", productID)
-	p.redisClient.Del(ctx, priceCacheKey)
+	if err := p.redisClient.Del(ctx, priceCacheKey).Err(); err != nil {
+		p.logger.Error(ctx, "Failed to delete price cache", "key", priceCacheKey, "error", err)
+	}
+
+	// 查找所有追踪此产品的用户，清理他们的缓存
+	var trackedProducts []models.TrackedProduct
+	if err := p.db.Where("product_id = ?", productID).Find(&trackedProducts).Error; err != nil {
+		p.logger.Error(ctx, "Failed to find tracked products", "product_id", productID, "error", err)
+	} else {
+		// 清理所有追踪此产品的用户的缓存
+		for _, tp := range trackedProducts {
+			trackedCacheKey := fmt.Sprintf("amazon_pilot:tracked:%s", tp.UserID)
+			if err := p.redisClient.Del(ctx, trackedCacheKey).Err(); err != nil {
+				p.logger.Error(ctx, "Failed to delete tracked cache", "key", trackedCacheKey, "error", err)
+			}
+		}
+		p.logger.Info(ctx, "Cleared cache for all users tracking this product",
+			"product_id", productID,
+			"user_count", len(trackedProducts),
+			"initiator_user_id", userID)
+	}
 
 	p.logger.LogBusinessOperation(ctx, "cache_invalidated", "apify_worker", productID, "success",
 		"asin", asin,
-		"user_id", userID,
+		"initiator_user_id", userID,
 	)
 }

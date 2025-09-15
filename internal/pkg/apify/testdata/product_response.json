@@ -1,0 +1,37 @@
+{
+  "asin": "B08N5WRWNW",
+  "title": "Echo Dot (Echo Dot 3rd Gen) - Smart speaker with Alexa - Charcoal",
+  "brand": "Amazon",
+  "category": "Smart Home",
+  "price": 27.99,
+  "currency": "USD",
+  "rating": 4.3,
+  "reviewCount": 585203,
+  "salesRank": 5,
+  "salesRankCategory": "Electronics",
+  "images": [
+    "https://m.media-amazon.com/images/I/61IxjvmXDtL._AC_SX679_.jpg",
+    "https://m.media-amazon.com/images/I/61MbLLagiVL._AC_SX679_.jpg",
+    "https://m.media-amazon.com/images/I/61RNVt9kXUL._AC_SX679_.jpg"
+  ],
+  "description": "Meet Echo Dot - Our most popular smart speaker with a fabric design. It is our most compact smart speaker that fits perfectly into small spaces.",
+  "bulletPoints": [
+    "Meet Echo Dot - Our most popular smart speaker with a fabric design. It is our most compact smart speaker that fits perfectly into small spaces.",
+    "Improved speaker quality - Better speaker quality than Echo Dot Gen 2 for richer and louder sound. Pair with a second Echo Dot for stereo sound.",
+    "Voice control your music - Stream songs from Amazon Music, Apple Music, Spotify, Sirius XM, and others.",
+    "Ready to help - Ask Alexa to play music, answer questions, read the news, check the weather, set alarms, control compatible smart home devices, and more.",
+    "Connect with others - Call almost anyone hands-free. Instantly drop in on other rooms in your home or make an announcement to every room with a compatible Echo device."
+  ],
+  "features": [
+    "Voice Assistant Built-in: Alexa",
+    "Color: Charcoal",
+    "Connectivity: Wi-Fi, Bluetooth",
+    "Dimensions: 3.9\" x 3.9\" x 3.5\"",
+    "Weight: 10.6 oz"
+  ],
+  "availability": "In Stock",
+  "isPrime": true,
+  "seller": "Amazon.com",
+  "fulfilledBy": "Amazon",
+  "scrapedAt": "2025-09-15T12:00:00Z"
+}

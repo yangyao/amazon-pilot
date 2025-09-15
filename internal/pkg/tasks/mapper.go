@@ -1,0 +1,32 @@
+package tasks
+
+import (
+	"encoding/json"
+	"amazonpilot/internal/pkg/apify"
+)
+
+// MapApifyDataToProduct 将 Apify 返回的数据映射到产品模型
+// 处理字段名差异，如 features -> bullet_points
+func MapApifyDataToProduct(data *apify.ProductData, rawJSON []byte) map[string]interface{} {
+	updates := map[string]interface{}{
+		"title":       data.Title,
+		"brand":       data.Brand,
+		"category":    data.Category,
+		"description": data.Description,
+	}
+
+	// 处理 bullet points - 现在 BulletPoints 字段已经在 NormalizeApifyResponse 中处理了
+	if len(data.BulletPoints) > 0 {
+		bulletPointsJSON, _ := json.Marshal(data.BulletPoints)
+		updates["bullet_points"] = bulletPointsJSON
+	}
+
+	// 映射图片
+	if len(data.Images) > 0 {
+		imagesJSON, _ := json.Marshal(data.Images)
+		updates["images"] = imagesJSON
+	}
+
+	return updates
+}
+

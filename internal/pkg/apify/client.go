@@ -26,21 +26,27 @@ type ProductData struct {
 	ASIN         string    `json:"asin"`
 	Title        string    `json:"title"`
 	Brand        string    `json:"brand,omitempty"`
+	Manufacturer string    `json:"manufacturer,omitempty"`
 	Category     string    `json:"category,omitempty"`
 	Price        float64   `json:"price"`
+	RetailPrice  float64   `json:"retailPrice,omitempty"`
 	Currency     string    `json:"currency"`
 	Rating       float64   `json:"rating,omitempty"`
-	ReviewCount  int       `json:"reviewCount,omitempty"`
+	ProductRating string   `json:"productRating,omitempty"` // e.g., "4.4 out of 5 stars"
+	ReviewCount  int       `json:"countReview,omitempty"`
 	BSR          int       `json:"salesRank,omitempty"`
 	BSRCategory  string    `json:"salesRankCategory,omitempty"`
-	Images       []string  `json:"images,omitempty"`
-	Description  string    `json:"description,omitempty"`
-	BulletPoints []string  `json:"bulletPoints,omitempty"`
-	Availability string    `json:"availability,omitempty"`
-	Prime        bool      `json:"isPrime,omitempty"`
-	Seller       string    `json:"seller,omitempty"`
+	Images       []string  `json:"imageUrlList,omitempty"`
+	Description  string    `json:"productDescription,omitempty"`
+	Features     []string  `json:"features,omitempty"`  // 实际 API 返回 features
+	BulletPoints []string  `json:"bulletPoints,omitempty"` // 保留兼容性
+	Availability string    `json:"warehouseAvailability,omitempty"`
+	Prime        bool      `json:"prime,omitempty"`
+	Seller       string    `json:"soldBy,omitempty"`
 	FulfilledBy  string    `json:"fulfilledBy,omitempty"`
 	ScrapedAt    time.Time `json:"scrapedAt"`
+	URL          string    `json:"url,omitempty"`
+	StatusCode   int       `json:"statusCode,omitempty"`
 }
 
 // RunInput Apify Actor运行输入 (简化为仅必需字段)
@@ -204,15 +210,27 @@ func (c *Client) GetRunResults(ctx context.Context, runID string) ([]ProductData
 		return nil, fmt.Errorf("failed to get results with status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	var products []ProductData
-	if err := json.NewDecoder(resp.Body).Decode(&products); err != nil {
-		return nil, fmt.Errorf("failed to decode results: %w", err)
+	// 先读取原始响应数据
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// 设置抓取时间
-	now := time.Now()
-	for i := range products {
-		products[i].ScrapedAt = now
+	// 解析为通用的 JSON 数组
+	var rawProducts []json.RawMessage
+	if err := json.Unmarshal(bodyBytes, &rawProducts); err != nil {
+		return nil, fmt.Errorf("failed to decode raw results: %w", err)
+	}
+
+	// 使用标准化函数处理每个产品数据
+	products := make([]ProductData, 0, len(rawProducts))
+	for _, rawProduct := range rawProducts {
+		normalizedProduct, err := NormalizeApifyResponse(rawProduct)
+		if err != nil {
+			slog.Warn("Failed to normalize product data, skipping", "error", err)
+			continue
+		}
+		products = append(products, *normalizedProduct)
 	}
 
 	c.logger.LogBusinessOperation(ctx, "apify_results_fetched", "apify_run", runID, "success",
@@ -261,6 +279,72 @@ func (c *Client) getRunStatus(ctx context.Context, runID string) (string, error)
 	return runData.Data.Status, nil
 }
 
+// ApifyResponseWithFeatures 实际 API 响应结构（基于真实数据）
+type ApifyResponseWithFeatures struct {
+	ASIN         string   `json:"asin"`
+	Title        string   `json:"title"`
+	Brand        string   `json:"brand,omitempty"`
+	Manufacturer string   `json:"manufacturer,omitempty"`
+	Category     string   `json:"category,omitempty"`
+	Price        float64  `json:"price"`
+	RetailPrice  float64  `json:"retailPrice,omitempty"`
+	Currency     string   `json:"currency"`
+	Rating       float64  `json:"rating,omitempty"`
+	ProductRating string  `json:"productRating,omitempty"`
+	ReviewCount  int      `json:"countReview,omitempty"`  // 实际 API 返回 countReview
+	BSR          int      `json:"salesRank,omitempty"`
+	BSRCategory  string   `json:"salesRankCategory,omitempty"`
+	Images       []string `json:"imageUrlList,omitempty"` // 实际 API 返回 imageUrlList
+	Description  string   `json:"productDescription,omitempty"`
+	Features     []string `json:"features,omitempty"`     // 实际 API 返回 features
+	Availability string   `json:"warehouseAvailability,omitempty"`
+	Prime        bool     `json:"prime,omitempty"`
+	Seller       string   `json:"soldBy,omitempty"`
+	FulfilledBy  string   `json:"fulfilledBy,omitempty"`
+	URL          string   `json:"url,omitempty"`
+	StatusCode   int      `json:"statusCode,omitempty"`
+}
+
+// NormalizeApifyResponse 标准化 Apify 响应，处理字段名差异
+func NormalizeApifyResponse(rawJSON []byte) (*ProductData, error) {
+	var response ApifyResponseWithFeatures
+	if err := json.Unmarshal(rawJSON, &response); err != nil {
+		return nil, err
+	}
+
+	// 直接使用 features 字段（这是 API 实际返回的字段）
+	bulletPoints := response.Features
+
+	// 设置抓取时间
+	now := time.Now()
+
+	return &ProductData{
+		ASIN:         response.ASIN,
+		Title:        response.Title,
+		Brand:        response.Brand,
+		Manufacturer: response.Manufacturer,
+		Category:     response.Category,
+		Price:        response.Price,
+		RetailPrice:  response.RetailPrice,
+		Currency:     response.Currency,
+		Rating:       response.Rating,
+		ProductRating: response.ProductRating,
+		ReviewCount:  response.ReviewCount,
+		BSR:          response.BSR,
+		BSRCategory:  response.BSRCategory,
+		Images:       response.Images, // 从 imageUrlList 映射到 Images
+		Description:  response.Description,
+		BulletPoints: bulletPoints,   // 从 features 映射到 BulletPoints
+		Availability: response.Availability,
+		Prime:        response.Prime,
+		Seller:       response.Seller,
+		FulfilledBy:  response.FulfilledBy,
+		ScrapedAt:    now,
+		URL:          response.URL,
+		StatusCode:   response.StatusCode,
+	}, nil
+}
+
 // FetchProductData 同步获取产品数据 (使用run-sync-get-dataset-items API)
 func (c *Client) FetchProductData(ctx context.Context, asins []string, timeout time.Duration) ([]ProductData, error) {
 	slog.Info("Starting sync product data fetch",
@@ -305,9 +389,27 @@ func (c *Client) FetchProductData(ctx context.Context, asins []string, timeout t
 		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	var products []ProductData
-	if err := json.NewDecoder(resp.Body).Decode(&products); err != nil {
-		return nil, fmt.Errorf("failed to decode results: %w", err)
+	// 先读取原始响应数据
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// 解析为通用的 JSON 数组
+	var rawProducts []json.RawMessage
+	if err := json.Unmarshal(bodyBytes, &rawProducts); err != nil {
+		return nil, fmt.Errorf("failed to decode raw results: %w", err)
+	}
+
+	// 使用标准化函数处理每个产品数据
+	products := make([]ProductData, 0, len(rawProducts))
+	for _, rawProduct := range rawProducts {
+		normalizedProduct, err := NormalizeApifyResponse(rawProduct)
+		if err != nil {
+			slog.Warn("Failed to normalize product data, skipping", "error", err)
+			continue
+		}
+		products = append(products, *normalizedProduct)
 	}
 
 	// 设置抓取时间

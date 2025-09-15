@@ -179,9 +179,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create initial partitions now
-SELECT create_monthly_partitions();
-
 -- ==========================
 -- Review History
 -- ==========================
@@ -348,3 +345,9 @@ VALUES
   ('demo@amazonpilot.com', '$2a$10$8k.4K5dMFQI5oZ.8yZBvr.AZz.7Lm2U4F8D9vY7KjH4P9oM1N2Q8S', 'Demo Company', 'basic'),
   ('admin@amazonpilot.com', '$2a$10$8k.4K5dMFQI5oZ.8yZBvr.AZz.7Lm2U4F8D9vY7KjH4P9oM1N2Q8S', 'Amazon Pilot', 'premium')
 ON CONFLICT (email) DO NOTHING;
+
+
+-- ==========================
+-- Create initial partitions AFTER all tables are created
+-- ==========================
+SELECT create_monthly_partitions();
