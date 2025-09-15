@@ -23,24 +23,24 @@ type Client struct {
 
 // ProductData Amazon产品数据结构
 type ProductData struct {
-	ASIN          string   `json:"asin"`
-	Title         string   `json:"title"`
-	Brand         string   `json:"brand,omitempty"`
-	Category      string   `json:"category,omitempty"`
-	Price         float64  `json:"price"`
-	Currency      string   `json:"currency"`
-	Rating        float64  `json:"rating,omitempty"`
-	ReviewCount   int      `json:"reviewCount,omitempty"`
-	BSR           int      `json:"salesRank,omitempty"`
-	BSRCategory   string   `json:"salesRankCategory,omitempty"`
-	Images        []string `json:"images,omitempty"`
-	Description   string   `json:"description,omitempty"`
-	BulletPoints  []string `json:"bulletPoints,omitempty"`
-	Availability  string   `json:"availability,omitempty"`
-	Prime         bool     `json:"isPrime,omitempty"`
-	Seller        string   `json:"seller,omitempty"`
-	FulfilledBy   string   `json:"fulfilledBy,omitempty"`
-	ScrapedAt     time.Time `json:"scrapedAt"`
+	ASIN         string    `json:"asin"`
+	Title        string    `json:"title"`
+	Brand        string    `json:"brand,omitempty"`
+	Category     string    `json:"category,omitempty"`
+	Price        float64   `json:"price"`
+	Currency     string    `json:"currency"`
+	Rating       float64   `json:"rating,omitempty"`
+	ReviewCount  int       `json:"reviewCount,omitempty"`
+	BSR          int       `json:"salesRank,omitempty"`
+	BSRCategory  string    `json:"salesRankCategory,omitempty"`
+	Images       []string  `json:"images,omitempty"`
+	Description  string    `json:"description,omitempty"`
+	BulletPoints []string  `json:"bulletPoints,omitempty"`
+	Availability string    `json:"availability,omitempty"`
+	Prime        bool      `json:"isPrime,omitempty"`
+	Seller       string    `json:"seller,omitempty"`
+	FulfilledBy  string    `json:"fulfilledBy,omitempty"`
+	ScrapedAt    time.Time `json:"scrapedAt"`
 }
 
 // RunInput Apify Actor运行输入 (简化为仅必需字段)
@@ -73,13 +73,13 @@ func NewClient(apiToken string) *Client {
 func (c *Client) RunAmazonProductActor(ctx context.Context, asins []string) (*RunResponse, error) {
 	// 使用经过验证的Amazon Product Details Actor (使用actor ID而不是name)
 	actorID := "7KgyOHHEiPEcilZXM"
-	
+
 	// 将ASIN转换为完整的Amazon URL
 	urls := make([]string, len(asins))
 	for i, asin := range asins {
 		urls[i] = fmt.Sprintf("https://www.amazon.com/dp/%s", asin)
 	}
-	
+
 	input := RunInput{
 		URLs: urls,
 	}
@@ -92,7 +92,7 @@ func (c *Client) RunAmazonProductActor(ctx context.Context, asins []string) (*Ru
 
 	// 构建请求 - 使用正确的Apify API格式
 	url := fmt.Sprintf("%s/acts/%s/runs", c.baseURL, actorID)
-	
+
 	inputBytes, err := json.Marshal(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal input: %w", err)
@@ -185,7 +185,7 @@ func (c *Client) GetRunResults(ctx context.Context, runID string) ([]ProductData
 	slog.Info("Fetching Apify run results", "run_id", runID)
 
 	url := fmt.Sprintf("%s/acts/runs/%s/dataset/items", c.baseURL, runID)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -230,7 +230,7 @@ func (c *Client) GetRunResults(ctx context.Context, runID string) ([]ProductData
 // getRunStatus 获取运行状态
 func (c *Client) getRunStatus(ctx context.Context, runID string) (string, error) {
 	url := fmt.Sprintf("%s/acts/runs/%s", c.baseURL, runID)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
@@ -300,7 +300,7 @@ func (c *Client) FetchProductData(ctx context.Context, asins []string, timeout t
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
