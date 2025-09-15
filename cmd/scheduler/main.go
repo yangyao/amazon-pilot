@@ -83,7 +83,7 @@ func main() {
 	// 创建cron调度器
 	cronScheduler := cron.New(cron.WithSeconds())
 
-	// 添加产品更新任务 - 每1分钟执行一次
+	// 添加产品更新任务 - 根据环境变量配置的间隔执行
 	_, err = cronScheduler.AddFunc("@every "+productUpdateInterval, func() {
 		scheduleProductUpdates(db, asynqClient)
 	})

@@ -135,6 +135,15 @@ func (l *AddProductTrackingLogic) AddProductTracking(req *types.AddTrackingReque
 		}
 	}
 
+	// 清除用户的追踪列表缓存，确保下次获取最新数据
+	cacheKey := "amazon_pilot:tracked:" + userIDStr
+	if err := l.svcCtx.RedisClient.Del(l.ctx, cacheKey).Err(); err != nil {
+		l.Errorf("Failed to clear tracked products cache: %v", err)
+		// 不影响主流程，继续执行
+	} else {
+		l.Infof("Cleared tracked products cache for user %s", userIDStr)
+	}
+
 	// 使用结构化日志记录业务操作
 	serviceLogger := logger.NewServiceLogger("product")
 	serviceLogger.LogBusinessOperation(l.ctx, "add_tracking", "product", product.ID, "success",
