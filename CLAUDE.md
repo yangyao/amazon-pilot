@@ -183,9 +183,11 @@ logger.Error("error occurred", "error", err)
 在编写任何代码前，必须先查看：
 
 1. **`docs/ARCHITECTURE.md`** - 系统架构图和设计原则
-2. **`docs/API_DESIGN.md`** - API 设计规范  
+2. **`docs/API_DESIGN.md`** - API 设计规范
 3. **`docs/DATABASE_DESIGN.md`** - 数据库设计规范
-4. **`docs/*.md`** - 所有设计文档都是 source of truth
+4. **`docs/CACHING.md`** - 缓存设计规范和Redis策略 ⭐ **新增**
+5. **`docs/MONITORING.md`** - 监控和可观测性设计
+6. **`docs/*.md`** - 所有设计文档都是 source of truth
 
 ### 🛠 开发规范
 
@@ -309,7 +311,8 @@ logger.Error("error occurred", "error", err)
 1. **技术方案前** → 查看 `docs/ARCHITECTURE.md`
 2. **数据库修改前** → 查看 `docs/DATABASE_DESIGN.md`
 3. **API设计前** → 查看 `docs/API_DESIGN.md`
-4. **功能实现前** → 查看 `docs/questions.md` 了解需求
+4. **缓存设计前** → 查看 `docs/CACHING.md` 了解缓存策略 ⭐ **新增**
+5. **功能实现前** → 查看 `docs/questions.md` 了解需求
 
 **设计文档是 source of truth，必须总是参考它之后再做技术方案的决定！**
 
@@ -531,6 +534,7 @@ vim internal/product/logic/xxxLogic.go
 # 先查看文档
 cat docs/ARCHITECTURE.md
 cat docs/API_DESIGN.md
+cat docs/CACHING.md        # 缓存相关开发必看
 
 # 然后再编码
 ```

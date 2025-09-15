@@ -98,6 +98,7 @@ func main() {
 	// 注册任务处理函数
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(tasks.TypeRefreshProductData, processor.HandleRefreshProductData)
+	mux.HandleFunc(tasks.TypeGenerateReport, processor.HandleGenerateReport)
 
 	// 优雅关闭处理
 	go func() {

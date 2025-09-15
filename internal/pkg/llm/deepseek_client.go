@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // DeepSeekClient DeepSeek API客户端
@@ -166,7 +169,15 @@ func (c *DeepSeekClient) parseCompetitorReport(response string) (*CompetitorRepo
 
 	// 尝试解析预处理后的内容
 	if err := json.Unmarshal([]byte(cleanedResponse), &report); err != nil {
-		return nil, fmt.Errorf("DeepSeek response parsing failed even after preprocessing. Original: %s, Cleaned: %s, Error: %w", response, cleanedResponse, err)
+		// 第三次尝试：严格清理JSON
+		strictCleanedResponse := strictCleanJSON(cleanedResponse)
+		if err2 := json.Unmarshal([]byte(strictCleanedResponse), &report); err2 == nil {
+			return &report, nil
+		}
+
+		// 所有尝试都失败，返回简化的错误信息
+		return nil, fmt.Errorf("DeepSeek response parsing failed. Length: %d, UTF-8 valid: %t, Error: %v",
+			len(response), utf8.ValidString(response), err)
 	}
 
 	return &report, nil
@@ -201,4 +212,31 @@ func preprocessDeepSeekResponse(response string) string {
 
 	// 如果没找到，返回原始内容
 	return response
+}
+
+// strictCleanJSON 严格清理JSON内容，处理编码和特殊字符问题
+func strictCleanJSON(jsonStr string) string {
+	// 1. 确保UTF-8编码有效
+	if !utf8.ValidString(jsonStr) {
+		// 移除无效的UTF-8字符
+		jsonStr = strings.ToValidUTF8(jsonStr, "")
+	}
+
+	// 2. 移除可能的BOM
+	jsonStr = strings.TrimPrefix(jsonStr, "\uFEFF")
+
+	// 3. 清理控制字符（保留\n, \r, \t）
+	re := regexp.MustCompile(`[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]`)
+	jsonStr = re.ReplaceAllString(jsonStr, "")
+
+	// 4. 处理可能的JSON格式问题
+	jsonStr = strings.TrimSpace(jsonStr)
+
+	// 5. 替换可能导致问题的特殊引号
+	jsonStr = strings.ReplaceAll(jsonStr, "\u201c", `"`) // 左双引号
+	jsonStr = strings.ReplaceAll(jsonStr, "\u201d", `"`) // 右双引号
+	jsonStr = strings.ReplaceAll(jsonStr, "\u2018", `'`) // 左单引号
+	jsonStr = strings.ReplaceAll(jsonStr, "\u2019", `'`) // 右单引号
+
+	return jsonStr
 }

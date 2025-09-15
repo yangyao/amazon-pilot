@@ -114,7 +114,7 @@ type (
 		Total      int `json:"total"`
 		TotalPages int `json:"total_pages"`
 	}
-	// Generate report
+	// Generate report (synchronous)
 	GenerateReportRequest {
 		AnalysisID string `path:"analysis_id"`
 		Force      bool   `json:"force,optional"` // 强制重新生成
@@ -124,6 +124,32 @@ type (
 		Status    string `json:"status"`
 		Message   string `json:"message"`
 		StartedAt string `json:"started_at"`
+	}
+	// Generate report asynchronously
+	GenerateReportAsyncRequest {
+		AnalysisID string `path:"analysis_id"`
+		Force      bool   `json:"force,optional"` // 强制重新生成
+	}
+	GenerateReportAsyncResponse {
+		TaskID    string `json:"task_id"`
+		Status    string `json:"status"`
+		Message   string `json:"message"`
+		StartedAt string `json:"started_at"`
+	}
+	// Get report status
+	GetReportStatusRequest {
+		AnalysisID string `path:"analysis_id"`
+		TaskID     string `path:"task_id,optional"`
+	}
+	GetReportStatusResponse {
+		TaskID      string `json:"task_id,omitempty"`
+		ReportID    string `json:"report_id,omitempty"`
+		Status      string `json:"status"`
+		Progress    int    `json:"progress,optional"`
+		Message     string `json:"message,omitempty"`
+		ErrorMsg    string `json:"error_message,omitempty"`
+		StartedAt   string `json:"started_at,omitempty"`
+		CompletedAt string `json:"completed_at,omitempty"`
 	}
 	// Health check
 	PingResponse {
@@ -173,5 +199,11 @@ service competitor-api {
 
 	@handler generateReport
 	post /analysis/:analysis_id/generate-report (GenerateReportRequest) returns (GenerateReportResponse)
+
+	@handler generateReportAsync
+	post /analysis/:analysis_id/generate-report-async (GenerateReportAsyncRequest) returns (GenerateReportAsyncResponse)
+
+	@handler getReportStatus
+	get /analysis/:analysis_id/report-status (GetReportStatusRequest) returns (GetReportStatusResponse)
 }
 

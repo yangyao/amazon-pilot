@@ -9,6 +9,7 @@ import (
 
 	"amazonpilot/internal/product/svc"
 	"amazonpilot/internal/product/types"
+	"amazonpilot/internal/pkg/cache"
 	"amazonpilot/internal/pkg/errors"
 	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
@@ -135,13 +136,13 @@ func (l *AddProductTrackingLogic) AddProductTracking(req *types.AddTrackingReque
 		}
 	}
 
-	// 清除用户的追踪列表缓存，确保下次获取最新数据
-	cacheKey := "amazon_pilot:tracked:" + userIDStr
-	if err := l.svcCtx.RedisClient.Del(l.ctx, cacheKey).Err(); err != nil {
-		l.Errorf("Failed to clear tracked products cache: %v", err)
+	// 清除与该产品相关的缓存（按产品缓存）
+	productCacheKey := cache.ProductDataKey(product.ID)
+	if err := l.svcCtx.RedisClient.Del(l.ctx, productCacheKey).Err(); err != nil {
+		l.Errorf("Failed to clear product data cache for product %s: %v", product.ID, err)
 		// 不影响主流程，继续执行
 	} else {
-		l.Infof("Cleared tracked products cache for user %s", userIDStr)
+		l.Infof("Cleared product data cache for product %s", product.ID)
 	}
 
 	// 使用结构化日志记录业务操作

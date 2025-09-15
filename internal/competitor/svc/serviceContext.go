@@ -1,6 +1,7 @@
 package svc
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 
@@ -9,6 +10,8 @@ import (
 	"amazonpilot/internal/pkg/auth"
 	"amazonpilot/internal/pkg/database"
 
+	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/rest"
 	"gorm.io/gorm"
 )
@@ -16,6 +19,8 @@ import (
 type ServiceContext struct {
 	Config               config.Config
 	DB                   *gorm.DB
+	RedisClient          *redis.Client
+	AsynqClient          *asynq.Client
 	JWTAuth              *auth.JWTAuth
 	RateLimitMiddleware  rest.Middleware
 }
@@ -82,12 +87,50 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	// 初始化JWT认证
 	jwtAuth := auth.NewJWTAuth(jwtSecret, accessExpire)
 
+	// 强制从环境变量获取Redis配置
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		panic("REDIS_HOST environment variable is required")
+	}
+
+	redisPortStr := os.Getenv("REDIS_PORT")
+	if redisPortStr == "" {
+		panic("REDIS_PORT environment variable is required")
+	}
+	redisPort, err := strconv.Atoi(redisPortStr)
+	if err != nil {
+		panic("Invalid REDIS_PORT: " + err.Error())
+	}
+
+	redisDBStr := os.Getenv("REDIS_DB")
+	if redisDBStr == "" {
+		redisDBStr = "0" // 默认值
+	}
+	redisDB, err := strconv.Atoi(redisDBStr)
+	if err != nil {
+		panic("Invalid REDIS_DB: " + err.Error())
+	}
+
+	// 创建Redis客户端
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%d", redisHost, redisPort),
+		DB:   redisDB,
+	})
+
+	// 创建Asynq客户端
+	asynqClient := asynq.NewClient(asynq.RedisClientOpt{
+		Addr: fmt.Sprintf("%s:%d", redisHost, redisPort),
+		DB:   redisDB,
+	})
+
 	// 初始化中间件
 	rateLimitMiddleware := middleware.NewRateLimitMiddleware()
 
 	return &ServiceContext{
 		Config:              c,
 		DB:                  db,
+		RedisClient:         redisClient,
+		AsynqClient:         asynqClient,
 		JWTAuth:             jwtAuth,
 		RateLimitMiddleware: rateLimitMiddleware.Handle,
 	}

@@ -235,6 +235,64 @@ sum(rate(amazon_pilot_rate_limit_total{result="blocked"}[5m]))
 sum by (plan, result) (rate(amazon_pilot_rate_limit_total[5m]))
 ```
 
+### Redis缓存监控
+
+```promql
+# Redis 连接数
+redis_connected_clients
+
+# Redis 内存使用量（字节）
+redis_memory_used_bytes
+
+# Redis 内存使用率（百分比）
+(redis_memory_used_bytes / redis_memory_max_bytes) * 100
+
+# Redis 命令处理速率
+rate(redis_commands_processed_total[5m])
+
+# Redis 缓存命中率
+rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) * 100
+
+# Redis 过期键数量
+rate(redis_expired_keys_total[5m])
+
+# Redis 驱逐键数量
+rate(redis_evicted_keys_total[5m])
+
+# Redis 阻塞客户端数量
+redis_blocked_clients
+
+# Redis 键空间统计
+redis_db_keys{db="db0"}
+
+# Redis 慢查询监控
+redis_slowlog_length
+
+# 按缓存类型统计键数量（需要自定义标签）
+redis_db_keys{db="db0", key_pattern="amazon_pilot:product_data:*"}
+redis_db_keys{db="db0", key_pattern="amazon_pilot:price:*"}
+redis_db_keys{db="db0", key_pattern="amazon_pilot:ranking:*"}
+```
+
+### 缓存业务指标
+
+```promql
+# 缓存命中率（应用层统计）
+# 需要在应用中添加自定义指标
+amazon_pilot_cache_operations_total{result="hit"} / amazon_pilot_cache_operations_total * 100
+
+# 缓存操作响应时间
+histogram_quantile(0.95,
+  sum by (operation, le) (rate(amazon_pilot_cache_duration_milliseconds_bucket[5m]))
+)
+
+# 缓存失效次数
+rate(amazon_pilot_cache_invalidations_total[5m])
+
+# 按缓存类型分组的操作统计
+sum by (cache_type, result) (rate(amazon_pilot_cache_operations_total[5m]))
+```
+
 ## 📐 Grafana Dashboard 配置
 
 ### Dashboard 结构
@@ -292,6 +350,36 @@ sum by (plan, result) (rate(amazon_pilot_rate_limit_total[5m]))
 4. **JWT 认证成功率** (Gauge Panel)
    - Query: `sum(rate(amazon_pilot_jwt_auth_total{result="success"}[5m])) / sum(rate(amazon_pilot_jwt_auth_total[5m])) * 100`
    - Thresholds: >95 (绿), 90-95 (黄), <90 (红)
+
+#### Row 4: Redis缓存监控
+1. **Redis 内存使用率** (Gauge Panel)
+   - Query: `(redis_memory_used_bytes / redis_memory_max_bytes) * 100`
+   - Unit: percent
+   - Thresholds: 0-70 (绿), 70-85 (黄), >85 (红)
+
+2. **Redis 缓存命中率** (Stat Panel)
+   - Query: `rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) * 100`
+   - Unit: percent
+   - Thresholds: >90 (绿), 70-90 (黄), <70 (红)
+
+3. **Redis 连接数** (Graph Panel)
+   - Query: `redis_connected_clients`
+   - Legend: 连接数
+
+4. **缓存键分布** (Pie Chart)
+   - Queries:
+     - 产品数据: `redis_db_keys{db="db0", key_pattern="amazon_pilot:product_data:*"}`
+     - 价格数据: `redis_db_keys{db="db0", key_pattern="amazon_pilot:price:*"}`
+     - 排名数据: `redis_db_keys{db="db0", key_pattern="amazon_pilot:ranking:*"}`
+
+5. **Redis 命令速率** (Graph Panel)
+   - Query: `rate(redis_commands_processed_total[5m])`
+   - Legend: Commands/sec
+
+6. **缓存失效趋势** (Graph Panel)
+   - Queries:
+     - 过期键: `rate(redis_expired_keys_total[5m])`
+     - 驱逐键: `rate(redis_evicted_keys_total[5m])`
 
 ## 🚨 告警规则配置
 
@@ -378,6 +466,66 @@ groups:
         annotations:
           summary: "JWT 认证失败率过高"
           description: "JWT 认证失败率超过 10%，当前值: {{ $value | humanizePercentage }}"
+
+  - name: amazon_pilot_redis
+    interval: 30s
+    rules:
+      # Redis 内存使用率告警
+      - alert: RedisHighMemoryUsage
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis 内存使用率过高"
+          description: "Redis 内存使用率超过 85%，当前值: {{ $value | humanizePercentage }}"
+
+      # Redis 缓存命中率低告警
+      - alert: RedisLowHitRate
+        expr: |
+          rate(redis_keyspace_hits_total[5m])
+          / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) * 100 < 70
+        for: 10m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis 缓存命中率过低"
+          description: "Redis 缓存命中率低于 70%，当前值: {{ $value | humanizePercentage }}"
+
+      # Redis 连接数异常
+      - alert: RedisHighConnections
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis 连接数过高"
+          description: "Redis 连接数超过 100，当前值: {{ $value }}"
+
+      # Redis 键驱逐告警
+      - alert: RedisKeyEviction
+        expr: rate(redis_evicted_keys_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis 键驱逐频繁"
+          description: "Redis 每秒驱逐键数量超过 10，当前值: {{ $value }}"
+
+      # Redis 不可达告警
+      - alert: RedisDown
+        expr: up{job="redis-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: redis
+        annotations:
+          summary: "Redis 服务不可达"
+          description: "Redis 服务已经不可达超过 1 分钟"
 ```
 
 ## 🎯 SLI/SLO 定义

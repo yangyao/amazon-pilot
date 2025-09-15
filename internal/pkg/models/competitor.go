@@ -53,7 +53,9 @@ func (CompetitorProduct) TableName() string {
 type CompetitorAnalysisResult struct {
 	ID              string         `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
 	AnalysisGroupID string         `gorm:"not null;type:uuid" json:"analysis_group_id"`
-	AnalysisData    datatypes.JSON `gorm:"type:jsonb;not null" json:"analysis_data"`
+	TaskID          string         `gorm:"size:100;index" json:"task_id,omitempty"`          // 异步任务ID
+	QueueID         string         `gorm:"size:100" json:"queue_id,omitempty"`              // AsyncQ队列任务ID
+	AnalysisData    datatypes.JSON `gorm:"type:jsonb" json:"analysis_data,omitempty"`       // 移除not null约束，允许异步任务为空
 	Insights        datatypes.JSON `gorm:"type:jsonb" json:"insights,omitempty"`
 	Recommendations datatypes.JSON `gorm:"type:jsonb" json:"recommendations,omitempty"`
 	Status          string         `gorm:"default:pending;size:20" json:"status"`

@@ -3,11 +3,11 @@ package logic
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"amazonpilot/internal/product/svc"
 	"amazonpilot/internal/product/types"
+	"amazonpilot/internal/pkg/cache"
 	"amazonpilot/internal/pkg/errors"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
@@ -36,18 +36,6 @@ func (l *GetTrackedProductsLogic) GetTrackedProducts(req *types.GetTrackedReques
 		return nil, err
 	}
 
-	// 根据设计文档，先尝试从Redis缓存获取追踪产品列表
-	cacheKey := fmt.Sprintf("amazon_pilot:tracked:%s", userIDStr)
-	cachedData, err := l.svcCtx.RedisClient.Get(l.ctx, cacheKey).Result()
-	if err == nil && cachedData != "" {
-		var cachedResp types.GetTrackedResponse
-		if err := json.Unmarshal([]byte(cachedData), &cachedResp); err == nil {
-			l.Infof("Retrieved tracked products from cache for user %s", userIDStr)
-			return &cachedResp, nil
-		}
-	}
-
-	// 缓存未命中，从数据库查询
 	// 设置分页参数
 	offset := (req.Page - 1) * req.Limit
 
@@ -75,32 +63,54 @@ func (l *GetTrackedProductsLogic) GetTrackedProducts(req *types.GetTrackedReques
 
 	l.Infof("Query result: found %d tracked records for user %s", len(trackedProducts), userIDStr)
 
-	// 转换为响应格式
+	// 转换为响应格式，使用按产品缓存
 	products := make([]types.TrackedProduct, 0, len(trackedProducts))
 	for _, tp := range trackedProducts {
 		status := "inactive"
 		if tp.IsActive {
 			status = "active"
 		}
-		
-		// 获取最新价格数据
+
+		productIDStr := tp.ProductID
+
+		// 尝试从缓存获取产品完整数据
+		productCacheKey := cache.ProductDataKey(productIDStr)
+		cachedProductData, err := l.svcCtx.RedisClient.Get(l.ctx, productCacheKey).Result()
+
+		var product types.TrackedProduct
+
+		if err == nil && cachedProductData != "" {
+			// 缓存命中，直接使用缓存数据
+			if unmarshalErr := json.Unmarshal([]byte(cachedProductData), &product); unmarshalErr == nil {
+				// 更新追踪相关字段
+				product.ID = tp.ID
+				if tp.Alias != nil {
+					product.Alias = *tp.Alias
+				}
+				product.Status = status
+				products = append(products, product)
+				continue
+			}
+		}
+
+		// 缓存未命中，从数据库获取数据
 		var latestPrice models.PriceHistory
 		l.svcCtx.DB.Where("product_id = ?", tp.ProductID).
 			Order("recorded_at DESC").
 			First(&latestPrice)
-			
-		// 获取最新排名数据  
+
+		// 获取最新排名数据
 		var latestRanking models.RankingHistory
 		l.svcCtx.DB.Where("product_id = ?", tp.ProductID).
 			Order("recorded_at DESC").
 			First(&latestRanking)
-		
+
 		// 安全获取指针字段的值
 		title := ""
 		if tp.Product.Title != nil {
 			title = *tp.Product.Title
 		}
-		
+
 		alias := ""
 		if tp.Alias != nil {
 			alias = *tp.Alias
@@ -133,7 +143,7 @@ func (l *GetTrackedProductsLogic) GetTrackedProducts(req *types.GetTrackedReques
 			json.Unmarshal(tp.Product.BulletPoints, &bulletPoints)
 		}
 
-		product := types.TrackedProduct{
+		product = types.TrackedProduct{
 			ID:           tp.ID,
 			ProductID:    tp.ProductID, // 添加product_id字段用于竞品分析
 			ASIN:         tp.Product.ASIN,
@@ -153,7 +163,7 @@ func (l *GetTrackedProductsLogic) GetTrackedProducts(req *types.GetTrackedReques
 			Description:  description,
 			BulletPoints: bulletPoints,
 		}
-		
+
 		// 安全设置BSR和Rating
 		if latestRanking.BSRRank != nil {
 			product.BSR = *latestRanking.BSRRank
@@ -164,7 +174,13 @@ func (l *GetTrackedProductsLogic) GetTrackedProducts(req *types.GetTrackedReques
 		if latestPrice.BuyBoxPrice != nil {
 			product.BuyBoxPrice = *latestPrice.BuyBoxPrice
 		}
-		
+
+		// 将产品数据缓存到Redis (按产品缓存，TTL: 30分钟)
+		if productData, marshalErr := json.Marshal(product); marshalErr == nil {
+			l.svcCtx.RedisClient.Set(l.ctx, productCacheKey, productData, 30*time.Minute).Err()
+			l.Infof("Cached product data for product %s, TTL: 30 minutes", productIDStr)
+		}
+
 		products = append(products, product)
 	}
 
@@ -181,12 +197,6 @@ func (l *GetTrackedProductsLogic) GetTrackedProducts(req *types.GetTrackedReques
 		},
 	}
 
-	// 根据设计文档将结果缓存到Redis (TTL: 1小时)
-	if cacheData, err := json.Marshal(resp); err == nil {
-		l.svcCtx.RedisClient.Set(l.ctx, cacheKey, cacheData, time.Hour).Err()
-		l.Infof("Cached tracked products for user %s, TTL: 1 hour", userIDStr)
-	}
-
-	l.Infof("Retrieved %d real tracked products for user %s", len(products), userIDStr)
+	l.Infof("Retrieved %d tracked products for user %s", len(products), userIDStr)
 	return resp, nil
 }

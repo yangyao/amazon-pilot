@@ -3,11 +3,11 @@ package logic
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"amazonpilot/internal/product/svc"
 	"amazonpilot/internal/product/types"
+	"amazonpilot/internal/pkg/cache"
 	"amazonpilot/internal/pkg/errors"
 	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
@@ -90,21 +90,21 @@ func (l *RefreshProductDataLogic) RefreshProductData(req *types.RefreshProductDa
 	return resp, nil
 }
 
-// invalidateProductCache 根据设计文档清理产品相关缓存
+// invalidateProductCache 根据设计文档清理产品相关缓存（使用统一缓存key）
 func (l *RefreshProductDataLogic) invalidateProductCache(asin, productID, userID string) {
 	ctx := context.Background()
 
-	// 清理产品基本信息缓存
-	productCacheKey := fmt.Sprintf("amazon_pilot:product:%s", asin)
-	l.svcCtx.RedisClient.Del(ctx, productCacheKey)
+	// 使用统一的缓存key清理产品数据缓存
+	productDataKey := cache.ProductDataKey(productID)
+	l.svcCtx.RedisClient.Del(ctx, productDataKey)
 
-	// 清理用户追踪产品列表缓存
-	trackedCacheKey := fmt.Sprintf("amazon_pilot:tracked:%s", userID)
-	l.svcCtx.RedisClient.Del(ctx, trackedCacheKey)
-
-	// 清理最新价格数据缓存
-	priceCacheKey := fmt.Sprintf("amazon_pilot:price:%s:latest", productID)
+	// 清理价格缓存
+	priceCacheKey := cache.PriceCacheKey(productID)
 	l.svcCtx.RedisClient.Del(ctx, priceCacheKey)
 
-	l.Infof("Invalidated cache for ASIN %s, product %s, user %s", asin, productID, userID)
+	// 清理排名缓存
+	rankingCacheKey := cache.RankingCacheKey(productID)
+	l.svcCtx.RedisClient.Del(ctx, rankingCacheKey)
+
+	l.Infof("Invalidated product cache for product %s (ASIN: %s)", productID, asin)
 }

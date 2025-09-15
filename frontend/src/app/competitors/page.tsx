@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Loader2, Plus, Search, List, BarChart3, Home, Users, Target, TrendingUp } from 'lucide-react'
+import { Loader2, Plus, Search, List, BarChart3, Home, Users, Target, TrendingUp, Clock, Play } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
@@ -51,6 +51,8 @@ export default function CompetitorsPage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [generating, setGenerating] = useState<{[key: string]: boolean}>({})
+  const [generatingAsync, setGeneratingAsync] = useState<{[key: string]: boolean}>({})
+  const [reportStatus, setReportStatus] = useState<{[key: string]: any}>({})
   const [activeTab, setActiveTab] = useState('groups')
   const router = useRouter()
   const { toast } = useToast()
@@ -160,14 +162,14 @@ export default function CompetitorsPage() {
     }
   }
 
-  const generateReport = async (analysisId: string, groupName: string) => {
+  const generateReport = async (analysisId: string, groupName: string, force: boolean = false) => {
     setGenerating(prev => ({ ...prev, [analysisId]: true }))
 
     try {
-      const data = await competitorAPI.generateReport(analysisId, { force: false })
+      const data = await competitorAPI.generateReport(analysisId, { force })
       toast({
-        title: "报告生成中",
-        description: `"${groupName}" 的竞争定位报告正在生成中，将自动更新状态`,
+        title: force ? "报告重新生成中" : "报告生成中",
+        description: `"${groupName}" 的竞争定位报告正在${force ? '重新' : ''}生成中，将自动更新状态`,
       })
 
       // 开始轮询报告状态（每5秒检查一次，最多2分钟）
@@ -181,7 +183,7 @@ export default function CompetitorsPage() {
             clearInterval(pollInterval)
             toast({
               title: "报告生成完成",
-              description: `"${groupName}" 的竞争定位报告已生成完成`,
+              description: `"${groupName}" 的竞争定位报告已${force ? '重新' : ''}生成完成`,
             })
             // 刷新分析组列表
             if (activeTab === 'groups') {
@@ -213,6 +215,69 @@ export default function CompetitorsPage() {
     } finally {
       setGenerating(prev => ({ ...prev, [analysisId]: false }))
     }
+  }
+
+  // 异步生成报告
+  const generateReportAsync = async (analysisId: string, groupName: string, force: boolean = false) => {
+    setGeneratingAsync(prev => ({ ...prev, [analysisId]: true }))
+
+    try {
+      const data = await competitorAPI.generateReportAsync(analysisId, { force })
+      toast({
+        title: force ? "异步重新生成任务已提交" : "异步任务已提交",
+        description: `"${groupName}" 的竞争定位报告${force ? '重新' : ''}生成任务已提交到后台队列`,
+      })
+
+      // 立即开始轮询任务状态
+      pollReportStatus(analysisId, data.task_id, groupName, force)
+
+    } catch (error: any) {
+      toast({
+        title: "提交失败",
+        description: error.response?.data?.error?.message || error.message || "提交异步生成任务失败",
+        variant: "destructive"
+      })
+      setGeneratingAsync(prev => ({ ...prev, [analysisId]: false }))
+    }
+  }
+
+  // 轮询报告状态
+  const pollReportStatus = (analysisId: string, taskId: string, groupName: string, force: boolean = false) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const status = await competitorAPI.getReportStatus(analysisId, taskId)
+        setReportStatus(prev => ({ ...prev, [analysisId]: status }))
+
+        if (status.status === 'completed') {
+          clearInterval(pollInterval)
+          setGeneratingAsync(prev => ({ ...prev, [analysisId]: false }))
+          toast({
+            title: "报告生成完成",
+            description: `"${groupName}" 的竞争定位报告已异步${force ? '重新' : ''}生成完成`,
+          })
+          // 刷新分析组列表
+          if (activeTab === 'groups') {
+            await loadAnalysisGroups()
+          }
+        } else if (status.status === 'failed') {
+          clearInterval(pollInterval)
+          setGeneratingAsync(prev => ({ ...prev, [analysisId]: false }))
+          toast({
+            title: "报告生成失败",
+            description: status.error_message || "异步报告生成失败",
+            variant: "destructive"
+          })
+        }
+      } catch (error) {
+        console.error('Poll report status error:', error)
+      }
+    }, 5000) // 每5秒轮询一次
+
+    // 5分钟后停止轮询
+    setTimeout(() => {
+      clearInterval(pollInterval)
+      setGeneratingAsync(prev => ({ ...prev, [analysisId]: false }))
+    }, 300000)
   }
 
   const viewAnalysisResults = async (analysisId: string) => {
@@ -301,22 +366,44 @@ export default function CompetitorsPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => viewAnalysisResults(group.id)}
+                                title="查看分析结果"
                               >
                                 <BarChart3 className="w-4 h-4" />
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => generateReport(group.id, group.name)}
-                                disabled={generating[group.id]}
+                                onClick={() => generateReport(group.id, group.name, !!group.last_analysis)}
+                                disabled={generating[group.id] || generatingAsync[group.id]}
+                                title={group.last_analysis ? "同步重新生成报告" : "同步生成报告"}
                               >
                                 {generating[group.id] ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
                                 ) : (
-                                  <TrendingUp className="w-4 h-4" />
+                                  <Play className="w-4 h-4" />
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => generateReportAsync(group.id, group.name, !!group.last_analysis)}
+                                disabled={generating[group.id] || generatingAsync[group.id]}
+                                title={group.last_analysis ? "异步重新生成报告" : "异步生成报告"}
+                              >
+                                {generatingAsync[group.id] ? (
+                                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                                ) : (
+                                  <Clock className="w-4 h-4 text-blue-600" />
                                 )}
                               </Button>
                             </div>
+                            {reportStatus[group.id] && (
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                {reportStatus[group.id].status === 'queued' && "⏳ 队列等待"}
+                                {reportStatus[group.id].status === 'processing' && "🔄 生成中"}
+                                {reportStatus[group.id].progress && ` (${reportStatus[group.id].progress}%)`}
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -574,9 +661,40 @@ export default function CompetitorsPage() {
                 {selectedAnalysis.status === 'completed' && selectedAnalysis.recommendations ? (
                   <Card>
                     <CardHeader>
-                      <CardTitle>LLM竞争定位报告</CardTitle>
+                      <CardTitle className="flex items-center justify-between">
+                        <span>LLM竞争定位报告</span>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => generateReport(selectedAnalysis.id, selectedAnalysis.name, true)}
+                            disabled={generating[selectedAnalysis.id] || generatingAsync[selectedAnalysis.id]}
+                            title="同步重新生成报告"
+                          >
+                            {generating[selectedAnalysis.id] ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Play className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => generateReportAsync(selectedAnalysis.id, selectedAnalysis.name, true)}
+                            disabled={generating[selectedAnalysis.id] || generatingAsync[selectedAnalysis.id]}
+                            title="异步重新生成报告"
+                          >
+                            {generatingAsync[selectedAnalysis.id] ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                            ) : (
+                              <Clock className="w-4 h-4 text-blue-600" />
+                            )}
+                          </Button>
+                        </div>
+                      </CardTitle>
                       <CardDescription>
-                        由GPT-4生成的竞争分析和优化建议
+                        由GPT-4生成的竞争分析和优化建议 •
+                        <span className="text-xs text-blue-600 ml-1">点击右上角按钮可重新生成</span>
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -594,6 +712,30 @@ export default function CompetitorsPage() {
                           </div>
                         ))}
                       </div>
+                      {/* 显示重新生成状态 */}
+                      {(generating[selectedAnalysis.id] || generatingAsync[selectedAnalysis.id] || reportStatus[selectedAnalysis.id]) && (
+                        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            {(generating[selectedAnalysis.id] || generatingAsync[selectedAnalysis.id]) && (
+                              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                            )}
+                            <div className="flex-1">
+                              {generating[selectedAnalysis.id] && (
+                                <div className="text-sm font-medium text-blue-800">正在同步生成新报告...</div>
+                              )}
+                              {generatingAsync[selectedAnalysis.id] && reportStatus[selectedAnalysis.id] && (
+                                <div className="text-sm font-medium text-blue-800">
+                                  异步生成中: {reportStatus[selectedAnalysis.id].message}
+                                  {reportStatus[selectedAnalysis.id].progress && ` (${reportStatus[selectedAnalysis.id].progress}%)`}
+                                </div>
+                              )}
+                              {generatingAsync[selectedAnalysis.id] && !reportStatus[selectedAnalysis.id] && (
+                                <div className="text-sm font-medium text-blue-800">异步任务已提交到后台队列...</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ) : selectedAnalysis.status === 'processing' ? (
@@ -618,8 +760,8 @@ export default function CompetitorsPage() {
                       </p>
                       <div className="flex gap-2 justify-center">
                         <Button
-                          onClick={() => generateReport(selectedAnalysis.id, selectedAnalysis.name)}
-                          disabled={generating[selectedAnalysis.id]}
+                          onClick={() => generateReport(selectedAnalysis.id, selectedAnalysis.name, true)}
+                          disabled={generating[selectedAnalysis.id] || generatingAsync[selectedAnalysis.id]}
                           variant="outline"
                         >
                           {generating[selectedAnalysis.id] ? (
@@ -629,8 +771,25 @@ export default function CompetitorsPage() {
                             </>
                           ) : (
                             <>
-                              <TrendingUp className="w-4 h-4 mr-2" />
-                              重新生成报告
+                              <Play className="w-4 h-4 mr-2" />
+                              同步重新生成
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={() => generateReportAsync(selectedAnalysis.id, selectedAnalysis.name, true)}
+                          disabled={generating[selectedAnalysis.id] || generatingAsync[selectedAnalysis.id]}
+                          variant="outline"
+                        >
+                          {generatingAsync[selectedAnalysis.id] ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin text-blue-600" />
+                              异步生成中...
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-4 h-4 mr-2 text-blue-600" />
+                              异步重新生成
                             </>
                           )}
                         </Button>
@@ -642,22 +801,41 @@ export default function CompetitorsPage() {
                     <CardContent className="py-8 text-center">
                       <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                       <p className="text-muted-foreground mb-4">暂无分析报告</p>
-                      <Button
-                        onClick={() => generateReport(selectedAnalysis.id, selectedAnalysis.name)}
-                        disabled={generating[selectedAnalysis.id]}
-                      >
-                        {generating[selectedAnalysis.id] ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            生成中...
-                          </>
-                        ) : (
-                          <>
-                            <TrendingUp className="w-4 h-4 mr-2" />
-                            生成竞争定位报告
-                          </>
-                        )}
-                      </Button>
+                      <div className="flex gap-2 justify-center">
+                        <Button
+                          onClick={() => generateReport(selectedAnalysis.id, selectedAnalysis.name)}
+                          disabled={generating[selectedAnalysis.id] || generatingAsync[selectedAnalysis.id]}
+                        >
+                          {generating[selectedAnalysis.id] ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              生成中...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-4 h-4 mr-2" />
+                              立即生成报告
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={() => generateReportAsync(selectedAnalysis.id, selectedAnalysis.name)}
+                          disabled={generating[selectedAnalysis.id] || generatingAsync[selectedAnalysis.id]}
+                          variant="outline"
+                        >
+                          {generatingAsync[selectedAnalysis.id] ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin text-blue-600" />
+                              异步生成中...
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-4 h-4 mr-2 text-blue-600" />
+                              异步生成报告
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 )}

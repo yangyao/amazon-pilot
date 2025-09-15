@@ -64,6 +64,18 @@ type CreateAnalysisResponse struct {
 	CreatedAt     string `json:"created_at"`
 }
 
+type GenerateReportAsyncRequest struct {
+	AnalysisID string `path:"analysis_id"`
+	Force      bool   `json:"force,optional"` // 强制重新生成
+}
+
+type GenerateReportAsyncResponse struct {
+	TaskID    string `json:"task_id"`
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+	StartedAt string `json:"started_at"`
+}
+
 type GenerateReportRequest struct {
 	AnalysisID string `path:"analysis_id"`
 	Force      bool   `json:"force,optional"` // 强制重新生成
@@ -90,6 +102,22 @@ type GetAnalysisResponse struct {
 	Recommendations []Recommendation    `json:"recommendations"`
 	Status          string              `json:"status"`
 	LastUpdated     string              `json:"last_updated"`
+}
+
+type GetReportStatusRequest struct {
+	AnalysisID string `path:"analysis_id"`
+	TaskID     string `path:"task_id,optional"`
+}
+
+type GetReportStatusResponse struct {
+	TaskID      string `json:"task_id,omitempty"`
+	ReportID    string `json:"report_id,omitempty"`
+	Status      string `json:"status"`
+	Progress    int    `json:"progress,optional"`
+	Message     string `json:"message,omitempty"`
+	ErrorMsg    string `json:"error_message,omitempty"`
+	StartedAt   string `json:"started_at,omitempty"`
+	CompletedAt string `json:"completed_at,omitempty"`
 }
 
 type HealthResponse struct {

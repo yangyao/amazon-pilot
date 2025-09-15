@@ -90,6 +90,30 @@ export interface GenerateReportResponse {
   started_at: string
 }
 
+// 异步生成报告请求和响应
+export interface GenerateReportAsyncRequest {
+  force?: boolean
+}
+
+export interface GenerateReportAsyncResponse {
+  task_id: string
+  status: string
+  message: string
+  started_at: string
+}
+
+// 获取报告状态响应
+export interface GetReportStatusResponse {
+  task_id?: string
+  report_id?: string
+  status: string
+  progress?: number
+  message?: string
+  error_message?: string
+  started_at?: string
+  completed_at?: string
+}
+
 // 竞品分析API函数
 export const competitorAPI = {
   // 创建分析组
@@ -104,9 +128,17 @@ export const competitorAPI = {
   getAnalysisResults: (analysisId: string): Promise<GetAnalysisResultsResponse> =>
     api.get(`/competitor/analysis/${analysisId}`).then(res => res.data),
 
-  // 生成LLM报告
+  // 生成LLM报告 (同步)
   generateReport: (analysisId: string, params?: GenerateReportRequest): Promise<GenerateReportResponse> =>
     api.post(`/competitor/analysis/${analysisId}/generate-report`, params || {}).then(res => res.data),
+
+  // 生成LLM报告 (异步)
+  generateReportAsync: (analysisId: string, params?: GenerateReportAsyncRequest): Promise<GenerateReportAsyncResponse> =>
+    api.post(`/competitor/analysis/${analysisId}/generate-report-async`, params || {}).then(res => res.data),
+
+  // 获取报告生成状态
+  getReportStatus: (analysisId: string, taskId?: string): Promise<GetReportStatusResponse> =>
+    api.get(`/competitor/analysis/${analysisId}/report-status`, { params: { task_id: taskId } }).then(res => res.data),
 
   // 添加竞品产品
   addCompetitor: (analysisId: string, data: { asin: string }): Promise<{ message: string }> =>

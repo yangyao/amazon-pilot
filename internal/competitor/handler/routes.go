@@ -60,6 +60,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/analysis/:analysis_id/generate-report",
 					Handler: generateReportHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/analysis/:analysis_id/generate-report-async",
+					Handler: generateReportAsyncHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
+					Path:    "/analysis/:analysis_id/report-status",
+					Handler: getReportStatusHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
