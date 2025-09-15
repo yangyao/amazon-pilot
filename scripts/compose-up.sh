@@ -8,7 +8,7 @@ shift || true
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 COMPOSE_DIR="$ROOT_DIR/deployments/compose"
 BASE_COMPOSE_FILE="$COMPOSE_DIR/docker-compose.yml"
-ENV_FILE="$COMPOSE_DIR/.env"
+ENV_FILE="$ROOT_DIR/.env"
 
 # 根据环境选择配置文件
 case $ENV in
