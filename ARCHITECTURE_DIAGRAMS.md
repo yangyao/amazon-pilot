@@ -16,7 +16,7 @@ graph TB
 
     %% 接入層（本地用容器Caddy；生產用物理機Caddy）
     subgraph "接入層"
-        CADDY[Caddy 反向代理<br/>/api -> Gateway<br/>/ -> Frontend]
+        CADDY[Caddy 反向代理<br/>api to Gateway<br/>root to Frontend]
         CDN[CDN<br/>靜態資源]
     end
 
@@ -31,14 +31,14 @@ graph TB
         PS[產品服務 Product]
         CS[競品服務 Competitor]
         OS[優化服務 Optimization]
-        WK[Worker (Asynq)]
-        SCH[Scheduler (Asynq)]
+        WK[Worker Asynq]
+        SCH[Scheduler Asynq]
         DASH[Asynq Dashboard]
     end
 
     %% 資料層
     subgraph "資料層"
-        DB[(PostgreSQL / Supabase)]
+        DB[(PostgreSQL Supabase)]
         REDIS[(Redis<br/>快取 & Asynq佇列)]
     end
 
@@ -149,7 +149,7 @@ graph TB
     end
 
     subgraph "資料儲存"
-        PRIMARY[(主資料庫<br/>PostgreSQL/Supabase)]
+        PRIMARY[(主資料庫<br/>PostgreSQL Supabase)]
         CACHE[(快取層<br/>Redis)]
         QUEUE[(佇列系統<br/>Redis+Asynq)]
     end
@@ -197,8 +197,8 @@ sequenceDiagram
     participant OS as Optimization Service
     participant Q as Asynq Queue
     participant C as Redis Cache
-    participant DB as PostgreSQL/Supabase
-    participant API as External APIs (Apify/OpenAI)
+    participant DB as PostgreSQL Supabase
+    participant API as External APIs
 
     Note over U,PS: 產品追蹤流程
     U->>AG: 1. 新增追蹤產品
@@ -211,27 +211,34 @@ sequenceDiagram
     Q->>DB: 8. 儲存產品資料
     Q->>C: 9. 更新快取
 
-    Note over U,CS: 競品分析流程
+    Note over U,CS: 競品分析流程（同步）
     U->>AG: 10. 請求競品分析
     AG->>CS: 11. 建立分析任務
-    CS->>Q: 12. 入隊分析任務
-    Q->>API: 13. 抓取競品資料
-    Q->>CS: 14. 執行比較與洞察
-    CS->>OS: 15. 需要時請求 AI 洞察
-    OS->>API: 16. 調用 OpenAI
-    API-->>OS: 17. 返回分析
-    OS-->>CS: 18. 返回洞察
-    CS->>DB: 19. 儲存分析結果
-    CS->>C: 20. 快取結果
+    CS->>API: 12. 調用 OpenAI
+    API-->>CS: 13. 返回分析
+    CS->>DB: 14. 儲存分析結果
+    CS->>C: 15. 快取結果
+
+    Note over U,Q: 競品分析流程（異步）
+    U->>AG: 16. 請求異步分析
+    AG->>CS: 17. 建立異步任務
+    CS->>Q: 18. 入隊報告生成任務
+    AG-->>U: 19. 返回 TaskID
+    Q->>API: 20. Worker 調用 OpenAI
+    API-->>Q: 21. 返回分析結果
+    Q->>DB: 22. 更新任務狀態
+    U->>AG: 23. 輪詢任務狀態
+    AG->>CS: 24. 查詢報告狀態
+    CS-->>U: 25. 返回完成狀態
 ```
 
 ## 4. 部署架構圖（Docker Compose 現狀）
 
 ```mermaid
 graph TB
-    subgraph "單機/VM（Docker Compose）"
+    subgraph "單機VM Docker Compose"
         subgraph "網關與前端"
-            CADDY[Caddy (本地容器/生產物理機)]
+            CADDY[Caddy 本地容器或生產物理機]
             GATEWAY[amazon-pilot-gateway:8080]
             FRONTEND[amazon-pilot-frontend:3000]
         end
@@ -247,7 +254,7 @@ graph TB
         end
 
         subgraph "資料服務"
-            POSTGRES[(PostgreSQL 本地容器/連線Supabase)]
+            POSTGRES[(PostgreSQL 本地容器或連線Supabase)]
             REDIS[(Redis)]
         end
 
@@ -318,16 +325,20 @@ graph TB
         subgraph "預設佇列"
             PQ[default 隊列<br/>• 資料更新<br/>• 權重: 3]
         end
-        
-        subgraph "低優先級佇列"
-            AQ[low 隊列<br/>• 競品/優化分析<br/>• 權重: 1]
+
+        subgraph "Apify佇列"
+            AQ[apify 隊列<br/>• Apify數據獲取<br/>• 權重: 2]
+        end
+
+        subgraph "清理佇列"
+            CQ[cleanup 隊列<br/>• 數據清理<br/>• 權重: 1]
         end
     end
     
     subgraph "任務消費者"
         WORKER1[Asynq Worker<br/>• 產品更新]
-        WORKER2[Asynq Worker<br/>• 競品/優化分析]
-        WORKER4[Asynq Worker<br/>• 清理/異常檢測]
+        WORKER2[Asynq Worker<br/>• 競品優化分析]
+        WORKER4[Asynq Worker<br/>• 清理異常檢測]
     end
     
     subgraph "外部服務"
@@ -340,14 +351,14 @@ graph TB
     PROD1 --> PQ
     PROD1 --> AQ
     PROD2 --> PQ
-    PROD2 --> AQ
+    PROD2 --> CQ
     PROD3 --> PQ
-    
+
     %% 佇列到消費者
     HQ --> WORKER1
     PQ --> WORKER1
     AQ --> WORKER2
-    PQ --> WORKER4
+    CQ --> WORKER4
     
     %% 消費者到外部服務
     WORKER1 --> APIFY
@@ -356,6 +367,7 @@ graph TB
     style HQ fill:#ffcdd2
     style PQ fill:#dcedc8
     style AQ fill:#bbdefb
+    style CQ fill:#f8bbd9
 ```
 
 ## 7. 安全架構圖（概念一致）
@@ -381,14 +393,11 @@ graph TB
             
             AUTHZ[Authorization Layer<br/>• RBAC 權限控制<br/>• API 權限檢查<br/>• 資源存取控制]
             
-            VALID[Input Validation
-• 參數驗證
-• SQL 注入防護
-• XSS 過濾]
+            VALID[Input Validation<br/>• 參數驗證<br/>• SQL 注入防護<br/>• XSS 過濾]
         end
         
         subgraph "資料層防護"
-            ENCRYPT[Data Encryption<br/>• 傳輸加密 (TLS)<br/>• 靜態加密<br/>• 欄位級加密]
+            ENCRYPT[Data Encryption<br/>• 傳輸加密 TLS<br/>• 靜態加密<br/>• 欄位級加密]
             
             AUDIT[Audit Logging<br/>• 存取日誌<br/>• 操作追蹤<br/>• 異常檢測]
         end
@@ -401,7 +410,7 @@ graph TB
     end
     
     subgraph "監控與回應"
-        SIEM[安全資訊與事件管理<br/>• 即時監控<br/>• 威脅檢測<br/>• 自動回應]
+        SIEM[安全資訊事件管理<br/>• 即時監控<br/>• 威脅檢測<br/>• 自動回應]
         
         INCIDENT[事件回應<br/>• 告警通知<br/>• 自動隔離<br/>• 恢復程序]
     end
@@ -476,9 +485,9 @@ graph TB
     end
     
     subgraph "視覺化與告警層"
-        GRAFANA[Grafana<br/>• 儀表板/日誌查詢]
-        
-        ALERT[AlertManager<br/>• 告警管理/通知路由]
+        GRAFANA[Grafana<br/>• 儀表板日誌查詢]
+
+        ALERT[AlertManager<br/>• 告警管理通知路由]
     end
     
     subgraph "通知渠道"
@@ -578,14 +587,14 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph "主要站點 (Primary)"
+    subgraph "主要站點 Primary"
         PROD_APP[應用服務]
         PROD_DB[(主資料庫)]
         PROD_CACHE[(主快取)]
         BACKUP[備份服務]
     end
     
-    subgraph "災難恢復站點 (DR)"
+    subgraph "災難恢復站點 DR"
         DR_APP[待命應用服務]
         DR_DB[(備援資料庫)]
         DR_CACHE[(備援快取)]
