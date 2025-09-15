@@ -121,6 +121,7 @@ fi
 
 echo "🧹 Cleanup..."
 rm -rf /tmp/amazon-pilot-deploy
+rm -rf /tmp/amazon-pilot-config
 
 # 保存日志
 mkdir -p logs

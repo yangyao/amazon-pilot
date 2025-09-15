@@ -147,6 +147,9 @@ jobs:
     environment: production
 
     steps:
+    - name: Checkout code for deployments
+      uses: actions/checkout@v4
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
 
@@ -158,6 +161,15 @@ jobs:
         key: ${{ secrets.SERVER_SSH_KEY }}
         source: "."
         target: "/tmp/amazon-pilot-deploy/"
+
+    - name: Upload deployments directory to server
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        source: "deployments,scripts"
+        target: "/tmp/amazon-pilot-config/"
 
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.3
@@ -177,8 +189,17 @@ jobs:
           echo "🚀 Executing server deployment script..."
           cd /opt/amazon-pilot
 
-          # 确保有最新的 compose 配置文件
-          git pull origin main || echo "Git pull skipped"
+          # 更新配置文件和脚本 (替代 git pull)
+          echo "📁 Updating deployments and scripts from CI..."
+          if [ -d "/tmp/amazon-pilot-config/deployments" ]; then
+            cp -r /tmp/amazon-pilot-config/deployments/* deployments/ 2>/dev/null || true
+            echo "✅ Updated deployments directory"
+          fi
+          if [ -d "/tmp/amazon-pilot-config/scripts" ]; then
+            cp -r /tmp/amazon-pilot-config/scripts/* scripts/ 2>/dev/null || true
+            chmod +x scripts/*.sh
+            echo "✅ Updated scripts directory"
+          fi
 
           # 执行部署脚本
           ./scripts/server-deploy.sh
