@@ -20,7 +20,7 @@ Amazon 賣家產品監控與優化工具的數據庫架構設計，支援微服�
 ## 微服務數據庫劃分
 
 ### 1. Auth Service (認證服務)
-- **主要表**: users, user_settings
+- **主要表**: users
 - **職責**: 用戶認證、授權、配置管理
 - **詳細設計**: [USERS.md](./USERS.md)
 
@@ -39,10 +39,8 @@ Amazon 賣家產品監控與優化工具的數據庫架構設計，支援微服�
 - **職責**: 優化建議、A/B測試
 - **詳細設計**: [OPTIMIZATION.md](./OPTIMIZATION.md)
 
-### 5. Notification Service (通知服務)
-- **主要表**: notifications, notification_templates
-- **職責**: 通知管理、模板系統
-- **詳細設計**: [NOTIFICATIONS.md](./NOTIFICATIONS.md)
+### 5. Notification（通知）
+- 不落庫；統一通過任務隊列與外部服務發送（郵件/推播/Webhook）
 
 ## 跨服務關聯
 
@@ -59,8 +57,7 @@ competitor_products.product_id → products.id
 optimization_tasks.user_id → users.id
 optimization_tasks.product_id → products.id
 
--- 通知服務關聯用戶
-notifications.user_id → users.id
+-- 通知不落庫，無外鍵關聯
 ```
 
 ## 技術策略

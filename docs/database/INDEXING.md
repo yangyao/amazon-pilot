@@ -60,7 +60,7 @@ CREATE INDEX idx_ranking_history_category_bsr ON product_ranking_history(categor
 CREATE INDEX idx_tracked_user_status_updated ON tracked_products(user_id, is_active, last_checked_at);
 
 -- 通知查詢優化
-CREATE INDEX idx_notifications_user_unread_priority ON notifications(user_id, is_read, priority, created_at DESC);
+-- 通知表已移除
 ```
 
 #### 2. 排序優化
@@ -81,7 +81,7 @@ CREATE INDEX idx_tracked_products_active ON tracked_products(user_id, product_id
 WHERE is_active = true;
 
 -- 僅索引未讀通知
-CREATE INDEX idx_notifications_unread ON notifications(user_id, created_at DESC)
+-- 通知表已移除
 WHERE is_read = false;
 ```
 

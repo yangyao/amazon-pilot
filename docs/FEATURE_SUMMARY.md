@@ -76,8 +76,7 @@ Amazon Pilot 是一个企业级的Amazon卖家产品监控与优化工具，完�
 
 ### 用户管理
 - `users` - 用户信息
-- `notifications` - 通知系统
-
+- 
 ## 🚀 核心API端点
 
 ### 认证API (/api/auth)

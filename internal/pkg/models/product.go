@@ -8,17 +8,17 @@ import (
 
 // Product 产品模型
 type Product struct {
-	ID            string         `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
-	ASIN          string         `gorm:"uniqueIndex;not null;size:10" json:"asin"`
-	Title         *string        `gorm:"type:text" json:"title,omitempty"`
-	Brand         *string        `gorm:"size:255" json:"brand,omitempty"`
-	Category      *string        `gorm:"size:255" json:"category,omitempty"`
-	Subcategory   *string        `gorm:"size:255" json:"subcategory,omitempty"`
-	Description   *string        `gorm:"type:text" json:"description,omitempty"`
-	BulletPoints  datatypes.JSON `gorm:"type:jsonb" json:"bullet_points,omitempty"`
-	Images        datatypes.JSON `gorm:"type:jsonb" json:"images,omitempty"`
-	Dimensions    datatypes.JSON `gorm:"type:jsonb" json:"dimensions,omitempty"`
-	Weight        *float64       `gorm:"type:decimal(10,2)" json:"weight,omitempty"`
+	ID           string         `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ASIN         string         `gorm:"uniqueIndex;not null;size:10" json:"asin"`
+	Title        *string        `gorm:"type:text" json:"title,omitempty"`
+	Brand        *string        `gorm:"size:255" json:"brand,omitempty"`
+	Category     *string        `gorm:"size:255" json:"category,omitempty"`
+	Subcategory  *string        `gorm:"size:255" json:"subcategory,omitempty"`
+	Description  *string        `gorm:"type:text" json:"description,omitempty"`
+	BulletPoints datatypes.JSON `gorm:"type:jsonb" json:"bullet_points,omitempty"`
+	Images       datatypes.JSON `gorm:"type:jsonb" json:"images,omitempty"`
+	Dimensions   datatypes.JSON `gorm:"type:jsonb" json:"dimensions,omitempty"`
+	Weight       *float64       `gorm:"type:decimal(10,2)" json:"weight,omitempty"`
 
 	// 基本信息
 	Manufacturer *string `gorm:"size:255" json:"manufacturer,omitempty"`
@@ -27,9 +27,9 @@ type Product struct {
 	EAN          *string `gorm:"size:20" json:"ean,omitempty"`
 
 	// 时间戳
-	FirstSeenAt   time.Time  `gorm:"default:now()" json:"first_seen_at"`
-	LastUpdatedAt time.Time  `gorm:"default:now()" json:"last_updated_at"`
-	DataSource    string     `gorm:"default:apify;size:50" json:"data_source"`
+	FirstSeenAt   time.Time `gorm:"default:now()" json:"first_seen_at"`
+	LastUpdatedAt time.Time `gorm:"default:now()" json:"last_updated_at"`
+	DataSource    string    `gorm:"default:apify;size:50" json:"data_source"`
 
 	// 关联
 	TrackedBy      []TrackedProduct `gorm:"foreignKey:ProductID" json:"tracked_by,omitempty"`
@@ -44,18 +44,18 @@ func (Product) TableName() string {
 
 // TrackedProduct 用户追踪的产品
 type TrackedProduct struct {
-	ID                    string     `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
-	UserID                string     `gorm:"not null;type:uuid" json:"user_id"`
-	ProductID             string     `gorm:"not null;type:uuid" json:"product_id"`
-	Alias                 *string    `gorm:"size:255" json:"alias,omitempty"`
-	IsActive              bool       `gorm:"default:true" json:"is_active"`
-	TrackingFrequency     string     `gorm:"default:daily;size:20" json:"tracking_frequency"`
-	PriceChangeThreshold  float64    `gorm:"default:10.0;type:decimal(5,2)" json:"price_change_threshold"`
-	BSRChangeThreshold    float64    `gorm:"default:30.0;type:decimal(5,2)" json:"bsr_change_threshold"`
-	CreatedAt             time.Time  `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt             time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
-	LastCheckedAt         *time.Time `json:"last_checked_at,omitempty"`
-	NextCheckAt           *time.Time `json:"next_check_at,omitempty"`
+	ID                   string     `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	UserID               string     `gorm:"not null;type:uuid" json:"user_id"`
+	ProductID            string     `gorm:"not null;type:uuid" json:"product_id"`
+	Alias                *string    `gorm:"size:255" json:"alias,omitempty"`
+	IsActive             bool       `gorm:"default:true" json:"is_active"`
+	TrackingFrequency    string     `gorm:"default:daily;size:20" json:"tracking_frequency"`
+	PriceChangeThreshold float64    `gorm:"default:10.0;type:decimal(5,2)" json:"price_change_threshold"`
+	BSRChangeThreshold   float64    `gorm:"default:30.0;type:decimal(5,2)" json:"bsr_change_threshold"`
+	CreatedAt            time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt            time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+	LastCheckedAt        *time.Time `json:"last_checked_at,omitempty"`
+	NextCheckAt          *time.Time `json:"next_check_at,omitempty"`
 
 	// 关联
 	User    User    `gorm:"foreignKey:UserID" json:"user,omitempty"`
@@ -111,17 +111,17 @@ func (RankingHistory) TableName() string {
 
 // ReviewHistory 评论历史记录
 type ReviewHistory struct {
-	ID              string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
-	ProductID       string    `gorm:"not null;type:uuid" json:"product_id"`
-	ReviewCount     int       `gorm:"default:0" json:"review_count"`
-	AverageRating   *float64  `gorm:"type:decimal(3,2)" json:"average_rating,omitempty"`
-	FiveStarCount   int       `gorm:"default:0" json:"five_star_count"`
-	FourStarCount   int       `gorm:"default:0" json:"four_star_count"`
-	ThreeStarCount  int       `gorm:"default:0" json:"three_star_count"`
-	TwoStarCount    int       `gorm:"default:0" json:"two_star_count"`
-	OneStarCount    int       `gorm:"default:0" json:"one_star_count"`
-	RecordedAt      time.Time `gorm:"default:now()" json:"recorded_at"`
-	DataSource      string    `gorm:"default:apify;size:50" json:"data_source"`
+	ID             string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ProductID      string    `gorm:"not null;type:uuid" json:"product_id"`
+	ReviewCount    int       `gorm:"default:0" json:"review_count"`
+	AverageRating  *float64  `gorm:"type:decimal(3,2)" json:"average_rating,omitempty"`
+	FiveStarCount  int       `gorm:"default:0" json:"five_star_count"`
+	FourStarCount  int       `gorm:"default:0" json:"four_star_count"`
+	ThreeStarCount int       `gorm:"default:0" json:"three_star_count"`
+	TwoStarCount   int       `gorm:"default:0" json:"two_star_count"`
+	OneStarCount   int       `gorm:"default:0" json:"one_star_count"`
+	RecordedAt     time.Time `gorm:"default:now()" json:"recorded_at"`
+	DataSource     string    `gorm:"default:apify;size:50" json:"data_source"`
 
 	// 关联
 	Product Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
@@ -153,4 +153,37 @@ type BuyBoxHistory struct {
 // TableName 表名
 func (BuyBoxHistory) TableName() string {
 	return "product_buybox_history"
+}
+
+// AnomalyEvent 异常事件表 (分区表)
+// 用于记录产品数据异常变化（价格变动>10%、BSR变动>30%等）
+type AnomalyEvent struct {
+	ID               string         `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ProductID        string         `gorm:"not null;type:uuid" json:"product_id"`
+	ASIN             string         `gorm:"not null;size:20" json:"asin"`
+	EventType        string         `gorm:"not null;size:50" json:"event_type"`
+	OldValue         *float64       `gorm:"type:decimal(15,2)" json:"old_value,omitempty"`
+	NewValue         *float64       `gorm:"type:decimal(15,2)" json:"new_value,omitempty"`
+	ChangePercentage *float64       `gorm:"type:decimal(10,2)" json:"change_percentage,omitempty"`
+	Threshold        *float64       `gorm:"type:decimal(10,2)" json:"threshold,omitempty"`
+	Severity         string         `gorm:"not null;size:20;default:info" json:"severity"`
+	Metadata         datatypes.JSON `gorm:"type:jsonb" json:"metadata,omitempty"`
+	Processed        bool           `gorm:"default:false" json:"processed"`
+	ProcessedAt      *time.Time     `json:"processed_at,omitempty"`
+	CreatedAt        time.Time      `gorm:"not null;autoCreateTime" json:"created_at"`
+
+	// 关联
+	Product Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
+}
+
+// TableName 表名 (分区表)
+func (AnomalyEvent) TableName() string {
+	return "product_anomaly_events"
+}
+
+// MarkAsProcessed 标记为已处理
+func (ae *AnomalyEvent) MarkAsProcessed() {
+	now := time.Now()
+	ae.Processed = true
+	ae.ProcessedAt = &now
 }

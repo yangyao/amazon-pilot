@@ -12,7 +12,7 @@ Amazon 賣家產品監控與優化工具的完整數據庫設計文件索引。
 - **[PRODUCTS.md](./PRODUCTS.md)** - 產品追蹤相關表設計 ⭐
 - **[COMPETITORS.md](./COMPETITORS.md)** - 競品分析相關表設計
 - **[OPTIMIZATION.md](./OPTIMIZATION.md)** - 優化建議相關表設計
-- **[NOTIFICATIONS.md](./NOTIFICATIONS.md)** - 通知系統表設計
+<!-- notifications 表已移除，不再提供對應 DB 設計文件 -->
 
 ### 技術文件
 - **[INDEXING.md](./INDEXING.md)** - 索引策略和優化
@@ -44,11 +44,11 @@ Amazon 賣家產品監控與優化工具的完整數據庫設計文件索引。
 
 | 功能模組 | 主要表 | 文件連結 |
 |---------|--------|----------|
-| 用戶管理 | users, user_settings | [USERS.md](./USERS.md) |
+| 用戶管理 | users | [USERS.md](./USERS.md) |
 | 產品追蹤 | products, tracked_products, *_history | [PRODUCTS.md](./PRODUCTS.md) |
 | 競品分析 | competitor_* | [COMPETITORS.md](./COMPETITORS.md) |
 | 優化建議 | optimization_* | [OPTIMIZATION.md](./OPTIMIZATION.md) |
-| 通知系統 | notifications | [NOTIFICATIONS.md](./NOTIFICATIONS.md) |
+| 通知系統 | （不落庫） | - |
 
 ---
 

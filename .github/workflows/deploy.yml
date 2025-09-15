@@ -176,7 +176,12 @@ jobs:
 
           echo "🚀 Executing server deployment script..."
           cd /opt/amazon-pilot
-          ./server-deploy.sh
+
+          # 确保有最新的 compose 配置文件
+          git pull origin main || echo "Git pull skipped"
+
+          # 执行部署脚本
+          ./scripts/server-deploy.sh
 
   notify:
     needs: [deploy]

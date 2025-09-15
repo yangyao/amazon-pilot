@@ -111,26 +111,6 @@ func (u *User) SetPassword(password string) error {
 }
 ```
 
-#### user_settings (用戶設定表)
-```sql
-CREATE TABLE user_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    notification_email BOOLEAN DEFAULT true,
-    notification_push BOOLEAN DEFAULT false,
-    timezone VARCHAR(50) DEFAULT 'UTC',
-    currency VARCHAR(3) DEFAULT 'USD',
-    default_tracking_frequency VARCHAR(20) DEFAULT 'daily',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    
-    CONSTRAINT user_settings_user_id_unique UNIQUE (user_id),
-    CONSTRAINT user_settings_frequency_check CHECK (default_tracking_frequency IN ('hourly', 'daily', 'weekly'))
-);
-
--- 索引
-CREATE INDEX idx_user_settings_user_id ON user_settings(user_id);
-```
 
 ### 2. 產品相關表
 
@@ -513,43 +493,8 @@ CREATE INDEX idx_suggestions_priority_impact ON optimization_suggestions(priorit
 CREATE INDEX idx_suggestions_category ON optimization_suggestions(category);
 ```
 
-### 6. 通知與警告表
-
-#### notifications (通知表)
-```sql
-CREATE TABLE notifications (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    
-    -- 通知內容
-    type VARCHAR(50) NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    severity VARCHAR(10) DEFAULT 'info',
-    
-    -- 關聯資料
-    product_id UUID REFERENCES products(id) ON DELETE SET NULL,
-    analysis_id UUID REFERENCES competitor_analysis_results(id) ON DELETE SET NULL,
-    data JSONB,
-    
-    -- 狀態
-    is_read BOOLEAN DEFAULT false,
-    read_at TIMESTAMP WITH TIME ZONE,
-    
-    -- 時間戳記
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    expires_at TIMESTAMP WITH TIME ZONE,
-    
-    CONSTRAINT notifications_type_check CHECK (type IN ('price_alert', 'bsr_change', 'analysis_complete', 'system', 'promotion')),
-    CONSTRAINT notifications_severity_check CHECK (severity IN ('info', 'warning', 'error', 'critical'))
-);
-
--- 索引
-CREATE INDEX idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read, created_at DESC);
-CREATE INDEX idx_notifications_type ON notifications(type);
-CREATE INDEX idx_notifications_created ON notifications(created_at DESC);
-```
+### 6. 通知與警告（已移除表）
+通知不再落庫；統一通過任務隊列與外部發送服務處理（郵件/推播/Webhook）。
 
 ### 7. 系統監控表
 
@@ -637,9 +582,7 @@ ON tracked_products(user_id, is_active, updated_at DESC);
 CREATE INDEX idx_price_history_product_date_price 
 ON product_price_history(product_id, recorded_at DESC, price);
 
--- 通知查詢優化
-CREATE INDEX idx_notifications_user_status_created 
-ON notifications(user_id, is_read, created_at DESC);
+-- 通知表已移除
 ```
 
 #### 部分索引
@@ -649,10 +592,7 @@ CREATE INDEX idx_tracked_products_active_next_check
 ON tracked_products(next_check_at) 
 WHERE is_active = true;
 
--- 只索引未讀通知
-CREATE INDEX idx_notifications_unread_created 
-ON notifications(user_id, created_at DESC) 
-WHERE is_read = false;
+-- 通知表已移除
 ```
 
 #### 全文搜索索引
@@ -978,7 +918,7 @@ func (nql *NotificationQueueListener) listenToNotifications() {
         return
     }
 
-    logx.Info("Listening for notifications on channel 'notification_queue'")
+    logx.Info("Listening for events on channel 'notification_queue'")
 
     for {
         select {
@@ -1032,7 +972,7 @@ func (nql *NotificationQueueListener) handleNotification(payload string) {
     logx.Infof("Notification queued: %s", notificationData.Type)
 }
             
-            logger.info(f"處理通知: {notification_data['event_type']}")
+            logger.info(f"處理事件: {notification_data['event_type']}")
             
         except Exception as e:
             logger.error(f"處理通知錯誤: {e}")
@@ -1040,9 +980,9 @@ func (nql *NotificationQueueListener) handleNotification(payload string) {
     async def send_to_redis_queue(self, notification_data: Dict[str, Any]):
         """發送通知到 Redis 隊列"""
         try:
-            # 根據優先級選擇隊列
+            # 根據優先級選擇隊列（示例命名）
             priority = notification_data.get('priority', 'low')
-            queue_name = f"notifications:{priority}"
+            queue_name = f"events:{priority}"
             
             # 添加到 Redis 隊列
             await self.redis_client.lpush(queue_name, json.dumps(notification_data))
@@ -1194,9 +1134,7 @@ pg_basebackup -h localhost -D /backup/base -U postgres -v -P -W
 VACUUM ANALYZE product_price_history;
 REINDEX INDEX CONCURRENTLY idx_price_history_product_recorded;
 
--- 清理過期通知
-DELETE FROM notifications 
-WHERE expires_at < NOW() - INTERVAL '30 days';
+-- 通知不落庫，無需清理通知記錄
 
 -- 更新表統計資訊
 ANALYZE;
@@ -1479,4 +1417,3 @@ CREATE INDEX idx_buybox_history_recorded ON product_buybox_history(recorded_at);
 ✅ **異常變化通知**:
 - 價格變動 > 10% → 支援檢測
 - 小類別 BSR 變動 > 30% → 支援檢測
-

@@ -25,25 +25,7 @@ CREATE INDEX idx_users_plan_type ON users(plan_type);
 CREATE INDEX idx_users_created_at ON users(created_at);
 ```
 
-### 2. user_settings (用戶設定表)
-```sql
-CREATE TABLE user_settings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    notification_email BOOLEAN DEFAULT true,
-    notification_push BOOLEAN DEFAULT false,
-    timezone VARCHAR(50) DEFAULT 'UTC',
-    currency VARCHAR(3) DEFAULT 'USD',
-    default_tracking_frequency VARCHAR(20) DEFAULT 'daily',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-
-    CONSTRAINT user_settings_user_id_unique UNIQUE (user_id),
-    CONSTRAINT user_settings_frequency_check CHECK (default_tracking_frequency IN ('hourly', 'daily', 'weekly'))
-);
-
-CREATE INDEX idx_user_settings_user_id ON user_settings(user_id);
-```
+> 說明：user_settings 已移除（由服務層配置代替），目前僅保留 users 表。
 
 ## 相關服務
 

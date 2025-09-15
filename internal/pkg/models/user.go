@@ -27,7 +27,7 @@ type User struct {
 
 // TableName 表名
 func (User) TableName() string {
-	return "users"
+    return "users"
 }
 
 // BeforeCreate 创建前钩子
@@ -52,23 +52,4 @@ func (u *User) CheckPassword(password string) bool {
 	return err == nil
 }
 
-// UserSettings 用户设置模型
-type UserSettings struct {
-	ID                       string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
-	UserID                   string    `gorm:"uniqueIndex;not null;type:uuid" json:"user_id"`
-	NotificationEmail        bool      `gorm:"default:true" json:"notification_email"`
-	NotificationPush         bool      `gorm:"default:false" json:"notification_push"`
-	Timezone                 string    `gorm:"default:UTC;size:50" json:"timezone"`
-	Currency                 string    `gorm:"default:USD;size:3" json:"currency"`
-	DefaultTrackingFrequency string    `gorm:"default:daily;size:20" json:"default_tracking_frequency"`
-	CreatedAt                time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt                time.Time `gorm:"autoUpdateTime" json:"updated_at"`
-
-	// 关联 (暂时注释，避免循环引用)
-	// User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
-}
-
-// TableName 表名
-func (UserSettings) TableName() string {
-	return "user_settings"
-}
+// 已移除：UserSettings 模型（不再需要）

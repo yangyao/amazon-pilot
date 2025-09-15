@@ -92,20 +92,7 @@ func (l *RegisterLogic) Register(req *types.RegisterRequest) (resp *types.Regist
 		return nil, errors.ErrInternalServer
 	}
 
-	// 创建默认用户设置
-	userSettings := models.UserSettings{
-		UserID:                   user.ID,
-		NotificationEmail:        true,
-		NotificationPush:         false,
-		Timezone:                 "UTC",
-		Currency:                 "USD",
-		DefaultTrackingFrequency: "daily",
-	}
-
-	if err := l.svcCtx.DB.Create(&userSettings).Error; err != nil {
-		l.Errorf("Failed to create user settings: %v", err)
-		// 不返回错误，因为用户已创建成功
-	}
+    // 用户设置表已移除，默认配置由应用层处理或忽略
 
 	resp = &types.RegisterResponse{
 		Message: "User created successfully",

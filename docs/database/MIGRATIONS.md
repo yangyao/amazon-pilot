@@ -8,7 +8,7 @@
 ```
 deployments/migrations/
 ├── 001_initial_schema.sql        # 初始化表結構
-├── 002_add_user_settings.sql     # 用戶設定表
+├── 002_add_user_settings.sql     # 已移除（保留歷史記錄）
 ├── 003_add_history_tables.sql    # 歷史追蹤表 (新增)
 └── 004_add_competitor_tables.sql # 競品分析表 (待添加)
 ```

@@ -1,0 +1,44 @@
+# 本地开发环境 Caddy 配置
+# 使用 HTTP 和端口号，不需要 HTTPS
+
+# 方式1: 使用端口号（推荐本地开发）
+:80 {
+    # API 请求转发到 Gateway
+    handle /api/* {
+        reverse_proxy amazon-pilot-gateway:8080
+    }
+    
+    # 其他请求转发到前端
+    handle {
+        reverse_proxy amazon-pilot-frontend-service:3000
+    }
+    
+    # 日志（可选）
+    log {
+        output stdout
+        format console
+    }
+}
+
+# 方式2: 使用 localhost（也可以）
+# localhost {
+#     handle /api/* {
+#         reverse_proxy amazon-pilot-gateway:8080
+#     }
+#     
+#     handle {
+#         reverse_proxy amazon-pilot-frontend-service:3000
+#     }
+# }
+
+# 方式3: 如果你想用假域名 + hosts 文件
+# local.amazon-pilot.test {
+#     # Caddy 会自动生成自签名证书
+#     handle /api/* {
+#         reverse_proxy amazon-pilot-gateway:8080
+#     }
+#     
+#     handle {
+#         reverse_proxy amazon-pilot-frontend-service:3000
+#     }
+# }

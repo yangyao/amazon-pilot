@@ -1,0 +1,46 @@
+# 生产环境覆盖配置
+# 使用方式: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  # 生产环境不需要 Caddy 容器（使用物理机的 Caddy）
+  
+  # 生产环境前端服务需要对外暴露端口
+  amazon-pilot-frontend-service:
+    ports:
+      - "4000:3000"  # 物理机 Caddy 可以访问（避免与 Grafana 3001 冲突）
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=/api
+
+  # 网关服务也需要对外暴露
+  amazon-pilot-gateway:
+    ports:
+      - "8080:8080"  # 物理机 Caddy 可以访问
+
+  # 生产环境特定配置
+  amazon-pilot-postgres:
+    environment:
+      - POSTGRES_DB=amazon_pilot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-amazon123}  # 使用环境变量
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # 生产环境不自动初始化数据
+      # - ./init-db:/docker-entrypoint-initdb.d:ro
+
+  amazon-pilot-redis:
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+
+  # 其他服务的生产环境配置
+  amazon-pilot-auth-service:
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_DSN=${DATABASE_DSN}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+
+  amazon-pilot-product-service:
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_DSN=${DATABASE_DSN}
+      - APIFY_API_TOKEN=${APIFY_API_TOKEN}

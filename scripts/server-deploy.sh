@@ -88,25 +88,38 @@ done
 
 echo "📊 Total images loaded: $IMAGE_COUNT"
 
-# 重新部署服务
-echo "🔄 Redeploying services..."
-docker-compose -f deployments/compose/docker-compose.yml down || echo "No existing services"
+# 重新部署服务（使用生产环境配置，不包含 Caddy）
+echo "🔄 Redeploying services (Production mode - without Caddy)..."
+docker-compose \
+  -f deployments/compose/docker-compose.yml \
+  -f deployments/compose/docker-compose.prod.yml \
+  down || echo "No existing services"
 
 echo "🚀 Starting services with new images..."
-docker-compose -f deployments/compose/docker-compose.yml --env-file deployments/compose/.env.production up -d --force-recreate --remove-orphans
+docker-compose \
+  -f deployments/compose/docker-compose.yml \
+  -f deployments/compose/docker-compose.prod.yml \
+  --env-file deployments/compose/.env.production \
+  up -d --force-recreate --remove-orphans
 
 echo "⏳ Waiting for services to start..."
 sleep 30
 
 echo "📊 Service status:"
-docker-compose -f deployments/compose/docker-compose.yml ps
+docker-compose \
+  -f deployments/compose/docker-compose.yml \
+  -f deployments/compose/docker-compose.prod.yml \
+  ps
 
 echo "🏥 Health check..."
 if curl -f http://localhost:8080/health; then
   echo "✅ Health check passed"
 else
   echo "❌ Health check failed"
-  docker-compose -f deployments/compose/docker-compose.yml logs --tail=10 amazon-pilot-gateway
+  docker-compose \
+    -f deployments/compose/docker-compose.yml \
+    -f deployments/compose/docker-compose.prod.yml \
+    logs --tail=10 amazon-pilot-gateway
 fi
 
 echo "🧹 Cleanup..."
@@ -120,5 +133,11 @@ echo "=========================================="
 echo "✅ Deployment completed successfully!"
 echo "🕐 End time: $(date)"
 echo "📋 Log saved to: logs/github-ci-$(date +%Y%m%d_%H%M%S).log"
+echo ""
+echo "📌 Production service ports:"
+echo "   Frontend: :4000 (proxied by Caddy)"
+echo "   Gateway:  :8080 (proxied by Caddy)"
+echo ""
 echo "🌐 Service available at: https://amazon-pilot.phpman.top"
+echo "   (Requires Caddy configuration on host machine)"
 echo "=========================================="

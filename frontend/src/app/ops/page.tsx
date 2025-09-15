@@ -78,7 +78,8 @@ export default function OpsPage() {
 
   const loadSystemStatus = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/ops/system/status', {
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL || '/api'
+      const response = await fetch(`${base}/ops/system/status`, {
         headers: {
           'Authorization': `Bearer ${Cookies.get('access_token')}`,
         },
@@ -137,7 +138,8 @@ export default function OpsPage() {
 
   const handleRestartService = async (serviceName: string) => {
     try {
-      const response = await fetch('http://localhost:8080/api/ops/services/restart', {
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL || '/api'
+      const response = await fetch(`${base}/ops/services/restart`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -348,7 +350,10 @@ export default function OpsPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Button 
               variant="outline" 
-              onClick={() => window.open('http://localhost:8080/metrics', '_blank')}
+              onClick={() => {
+                const target = (process.env.NEXT_PUBLIC_GATEWAY_EXTERNAL_URL || 'http://localhost:8080') + '/metrics'
+                window.open(target, '_blank')
+              }}
             >
               📊 Prometheus Metrics
             </Button>

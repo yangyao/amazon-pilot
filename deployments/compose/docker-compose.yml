@@ -13,6 +13,8 @@ services:
       - POSTGRES_PASSWORD=amazon123
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Auto-init schema and seed data on first run
+      - ./init-db:/docker-entrypoint-initdb.d:ro
     restart: unless-stopped
     networks:
       - amazon-pilot-network
@@ -188,8 +190,9 @@ services:
   amazon-pilot-frontend-service:
     image: amazon-pilot-frontend:latest
     container_name: amazon-pilot-frontend-service
-    ports:
-      - "4000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=/api
     restart: unless-stopped
     networks:
       - amazon-pilot-network
