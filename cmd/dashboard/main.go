@@ -32,8 +32,7 @@ func main() {
 		log.Fatal("REDIS_PORT environment variable is required")
 	}
 
-	redisPassword := os.Getenv("REDIS_PASSWORD")
-	// Redis密码是可选的，本地开发可能没有
+	// Redis不使用密码
 
 	dashboardPort := os.Getenv("DASHBOARD_PORT")
 	if dashboardPort == "" {
@@ -47,10 +46,9 @@ func main() {
 	log.Printf("📡 Redis: %s", redisAddr)
 	log.Printf("🌐 Dashboard: http://0.0.0.0:%s", dashboardPort)
 
-	// 创建Redis连接选项
+	// 创建Redis连接选项（无密码）
 	redisConnOpt := asynq.RedisClientOpt{
-		Addr:     redisAddr,
-		Password: redisPassword,
+		Addr: redisAddr,
 	}
 
 	// 启动Asynq Dashboard

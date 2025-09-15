@@ -2,8 +2,8 @@ Name: asynq-dashboard
 Host: 0.0.0.0
 Port: 5555
 
-# Redis配置通过环境变量获取
-# REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+# Redis配置通过环境变量获取 (无密码)
+# REDIS_HOST, REDIS_PORT
 
 # Dashboard配置通过环境变量获取
 # DASHBOARD_PORT (默认: 5555)

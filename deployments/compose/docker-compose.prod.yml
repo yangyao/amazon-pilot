@@ -29,7 +29,7 @@ services:
       # - ./init-db:/docker-entrypoint-initdb.d:ro
 
   amazon-pilot-redis:
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    command: redis-server --appendonly yes
 
   # 其他服务的生产环境配置
   amazon-pilot-auth-service:
