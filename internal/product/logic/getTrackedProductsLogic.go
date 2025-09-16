@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"time"
 
-	"amazonpilot/internal/product/svc"
-	"amazonpilot/internal/product/types"
 	"amazonpilot/internal/pkg/cache"
 	"amazonpilot/internal/pkg/errors"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
+	"amazonpilot/internal/product/svc"
+	"amazonpilot/internal/product/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -79,7 +79,7 @@ func (l *GetTrackedProductsLogic) GetTrackedProducts(req *types.GetTrackedReques
 
 		var product types.TrackedProduct
 
-		if err == nil && cachedProductData != "" {
+		if err == nil && cachedProductData != "" && tp.Product.Title != nil {
 			// 缓存命中，直接使用缓存数据
 			if unmarshalErr := json.Unmarshal([]byte(cachedProductData), &product); unmarshalErr == nil {
 				// 更新追踪相关字段
