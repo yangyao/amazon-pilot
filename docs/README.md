@@ -15,7 +15,7 @@ Amazon Pilot 是一個為 Amazon 賣家設計的產品監控與優化工具，�
 - **數據庫**: PostgreSQL (主庫) + Redis (緩存/隊列)
 - **前端**: Next.js 14 + React 18 + TypeScript
 - **部署**: Docker + GitHub Actions CI/CD
-- **監控**: Prometheus + Grafana + 結構化日誌
+- **監控**: Prometheus + Grafana + Loki + 結構化日誌
 - **數據源**: Apify API (真實 Amazon 數據) + DeepSeek LLM
 
 ## 🚀 快速開始
@@ -110,12 +110,6 @@ https://amazon-pilot.phpman.top
   - 緩存 Key 設計規範
   - TTL 策略和失效機制
   - 性能監控和優化
-
-### 📝 日誌管理
-- **[LOKI_USAGE.md](./LOKI_USAGE.md)** - 結構化日誌設計
-  - Loki + Grafana 日誌管理
-  - 日誌查詢和分析
-  - 日誌保留策略
 
 ## 📖 項目相關文檔
 

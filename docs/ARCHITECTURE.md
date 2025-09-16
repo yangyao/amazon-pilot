@@ -28,7 +28,7 @@
 - **數據源**: Apify API (Amazon產品數據爬取)
 - **前端**: Next.js + React + TypeScript + Tailwind CSS
 - **API網關**: 統一路由和認證
-- **監控**: Prometheus + Grafana + 結構化JSON日誌
+- **監控**: Prometheus + Grafana + Loki + 結構化JSON日誌
 - **部署**: Docker + Docker Compose + GitHub Actions CI/CD
 
 ## 📖 API 文檔架構
@@ -270,9 +270,13 @@ paths:
 ### 日誌架構
 
 **結構化日誌**:
-- JSON 格式統一輸出
+- JSON 格式統一輸出 (所有服務包括 GORM)
 - 分級日誌 (DEBUG, INFO, WARN, ERROR)
-- 集中式日誌收集 (Loki)
+- **Loki + Promtail 集中式日誌收集**:
+  - Promtail 自動採集所有容器日誌
+  - Loki 存儲和索引結構化日誌
+  - Grafana 整合日誌查詢和可視化
+  - 支援 LogQL 查詢語法
 - 關鍵業務操作審計日誌
 
 ### 錯誤追蹤與告警
