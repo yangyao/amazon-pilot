@@ -1,0 +1,20 @@
+# 本地开发环境 Caddy 配置
+# 使用 HTTP 和端口号，不需要 HTTPS
+
+:80 {
+    # API 请求转发到 Gateway
+    handle /api/* {
+        reverse_proxy amazon-pilot-gateway:8080
+    }
+    
+    # 其他请求转发到前端
+    handle {
+        reverse_proxy amazon-pilot-frontend-service:3000
+    }
+    
+    # 日志（可选）
+    log {
+        output stdout
+        format console
+    }
+}

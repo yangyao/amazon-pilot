@@ -1,16 +1,15 @@
 package logic
 
 import (
-	"context"
-	"encoding/json"
-	"time"
-
 	"amazonpilot/internal/pkg/cache"
 	"amazonpilot/internal/pkg/errors"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
 	"amazonpilot/internal/product/svc"
 	"amazonpilot/internal/product/types"
+	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -174,11 +173,13 @@ func (l *GetTrackedProductsLogic) GetTrackedProducts(req *types.GetTrackedReques
 		if latestPrice.BuyBoxPrice != nil {
 			product.BuyBoxPrice = *latestPrice.BuyBoxPrice
 		}
-
 		// 将产品数据缓存到Redis (按产品缓存，TTL: 30分钟)
-		if productData, marshalErr := json.Marshal(product); marshalErr == nil {
-			l.svcCtx.RedisClient.Set(l.ctx, productCacheKey, productData, 30*time.Minute).Err()
-			l.Infof("Cached product data for product %s, TTL: 30 minutes", productIDStr)
+		// 首次加入 ASIN 的时候，title 是没有获取到的，不用缓存。
+		if product.Title != "" {
+			if productData, marshalErr := json.Marshal(product); marshalErr == nil {
+				l.svcCtx.RedisClient.Set(l.ctx, productCacheKey, productData, 30*time.Minute).Err()
+				l.Infof("Cached product data for product %s, TTL: 30 minutes", productIDStr)
+			}
 		}
 
 		products = append(products, product)
