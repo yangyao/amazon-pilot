@@ -70,29 +70,43 @@ func (l *GetAnalysisResultsLogic) GetAnalysisResults(req *types.GetAnalysisReque
 	}
 
 	// 构建主产品信息
+	mainProductData, err := l.getLatestProductData(analysisGroup.MainProduct.ID)
+	if err != nil {
+		utils.LogError(l.ctx, "Failed to get main product data", "product_id", analysisGroup.MainProduct.ID, "error", err)
+		// 使用默认值
+		mainProductData = &productData{Price: 0, Currency: "USD", BSR: 0, Rating: 0, ReviewCount: 0}
+	}
+
 	resp.MainProduct = types.CompetitorProduct{
 		ID:          analysisGroup.MainProduct.ID,
 		ASIN:        analysisGroup.MainProduct.ASIN,
 		Title:       func() string { if analysisGroup.MainProduct.Title != nil { return *analysisGroup.MainProduct.Title }; return "" }(),
 		Brand:       func() string { if analysisGroup.MainProduct.Brand != nil { return *analysisGroup.MainProduct.Brand }; return "" }(),
-		Price:       0, // TODO: 从最新价格历史获取
-		BSR:         0, // TODO: 从最新排名历史获取
-		Rating:      0, // TODO: 从最新排名历史获取
-		ReviewCount: 0,
+		Price:       mainProductData.Price,
+		BSR:         mainProductData.BSR,
+		Rating:      mainProductData.Rating,
+		ReviewCount: mainProductData.ReviewCount,
 	}
 
 	// 构建竞品信息
 	resp.Competitors = make([]types.CompetitorProduct, len(analysisGroup.Competitors))
 	for i, comp := range analysisGroup.Competitors {
+		competitorData, err := l.getLatestProductData(comp.Product.ID)
+		if err != nil {
+			utils.LogError(l.ctx, "Failed to get competitor data", "product_id", comp.Product.ID, "asin", comp.Product.ASIN, "error", err)
+			// 使用默认值
+			competitorData = &productData{Price: 0, Currency: "USD", BSR: 0, Rating: 0, ReviewCount: 0}
+		}
+
 		resp.Competitors[i] = types.CompetitorProduct{
 			ID:          comp.Product.ID,
 			ASIN:        comp.Product.ASIN,
 			Title:       func() string { if comp.Product.Title != nil { return *comp.Product.Title }; return "" }(),
 			Brand:       func() string { if comp.Product.Brand != nil { return *comp.Product.Brand }; return "" }(),
-			Price:       0, // TODO: 从最新价格历史获取
-			BSR:         0, // TODO: 从最新排名历史获取
-			Rating:      0, // TODO: 从最新排名历史获取
-			ReviewCount: 0,
+			Price:       competitorData.Price,
+			BSR:         competitorData.BSR,
+			Rating:      competitorData.Rating,
+			ReviewCount: competitorData.ReviewCount,
 		}
 	}
 
@@ -120,4 +134,50 @@ func (l *GetAnalysisResultsLogic) GetAnalysisResults(req *types.GetAnalysisReque
 	)
 
 	return resp, nil
+}
+
+// productData 产品数据结构（本地定义）
+type productData struct {
+	Price       float64
+	Currency    string
+	BSR         int
+	Rating      float64
+	ReviewCount int
+}
+
+// getLatestProductData 获取产品的最新数据（价格、BSR、评分等）
+func (l *GetAnalysisResultsLogic) getLatestProductData(productID string) (*productData, error) {
+	// 获取最新价格数据
+	var latestPrice models.PriceHistory
+	err := l.svcCtx.DB.Where("product_id = ?", productID).
+		Order("recorded_at DESC").
+		First(&latestPrice).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	// 获取最新排名数据
+	var latestRanking models.RankingHistory
+	err = l.svcCtx.DB.Where("product_id = ?", productID).
+		Order("recorded_at DESC").
+		First(&latestRanking).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	data := &productData{
+		Price:       latestPrice.Price,
+		Currency:    latestPrice.Currency,
+		ReviewCount: latestRanking.ReviewCount,
+	}
+
+	// 安全设置BSR和Rating
+	if latestRanking.BSRRank != nil {
+		data.BSR = *latestRanking.BSRRank
+	}
+	if latestRanking.Rating != nil {
+		data.Rating = *latestRanking.Rating
+	}
+
+	return data, nil
 }

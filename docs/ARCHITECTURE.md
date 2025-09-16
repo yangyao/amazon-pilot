@@ -31,6 +31,77 @@
 - **監控**: Prometheus + Grafana + 結構化JSON日誌
 - **部署**: Docker + Docker Compose + GitHub Actions CI/CD
 
+## 📖 API 文檔架構
+
+### go-zero API 定義文件
+
+**重要說明**: 本項目使用 **go-zero .api 文件** 作為 API 文檔，這比傳統的 Swagger 或 Postman Collection 更先進和實用。
+
+#### API 文件架構 (`api/openapi/`)
+```
+api/openapi/
+├── auth.api         # 認證服務 API (2.7KB)
+├── product.api      # 產品追蹤 API (8.6KB)
+├── competitor.api   # 競品分析 API (6.7KB)
+└── optimization.api # 優化建議 API (3.9KB)
+```
+
+#### go-zero .api 文件技術優勢
+
+**相比 Swagger/OpenAPI 的優勢**:
+- ✅ **單一真實源頭**: API 定義即代碼生成源，避免文檔與代碼不同步
+- ✅ **自動代碼生成**: 修改 .api 文件後自動生成 Handler, Types, Routes
+- ✅ **類型安全**: 編譯時檢查 API 契約，避免運行時錯誤
+- ✅ **簡潔語法**: 比 JSON/YAML 更簡潔易讀
+- ✅ **完整配置**: 包含認證、中間件、路由等完整配置
+
+**示例對比**:
+```go
+// go-zero .api 文件 (簡潔)
+type LoginRequest {
+    Email    string `json:"email"`
+    Password string `json:"password"`
+}
+
+@handler login
+post /login (LoginRequest) returns (LoginResponse)
+```
+
+```yaml
+# 傳統 Swagger (冗長)
+paths:
+  /login:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+```
+
+#### API 文件完整性
+
+**每個 .api 文件包含**:
+- 📋 **完整的類型定義**: Request/Response 結構體
+- 🔐 **認證配置**: JWT 和中間件設定
+- 🛣️ **路由定義**: RESTful 端點設計
+- ✅ **參數驗證**: 內建驗證規則和約束
+- 📊 **健康檢查**: 標準的 ping/health 端點
+
+**代碼生成流程**:
+```bash
+# 修改 API 定義後自動生成代碼
+./scripts/goctl-centralized.sh -s product
+./scripts/goctl-centralized.sh -s competitor
+```
+
+**總計 22KB 的 API 定義文件，涵蓋所有微服務端點，提供比傳統 API 文檔更強大的功能。**
+
 ## 微服務架構設計
 
 ### 1. API Gateway
@@ -214,29 +285,61 @@
 
 ## 安全性架構
 
+### 傳輸層安全
+
+**Caddy 自動 HTTPS 配置**:
+- **自動證書管理**: Caddy 使用 Let's Encrypt 自動申請和續期 SSL 證書
+- **多域名 HTTPS**: 支持 amazon-pilot.phpman.top, monitor.*, grafana.* 等子域名
+- **HTTP 自動重定向**: 所有 HTTP 請求自動重定向到 HTTPS
+- **現代 TLS 配置**: 默認 TLS 1.2+, HTTP/2, 安全密碼套件
+
+**部署配置**:
+```caddy
+# 生產環境自動 HTTPS (caddy-amazon-pilot.conf)
+amazon-pilot.phpman.top {
+    handle /api/* {
+        reverse_proxy localhost:8080  # Gateway
+    }
+    handle {
+        reverse_proxy localhost:4000  # Frontend
+    }
+}
+```
+
 ### API 安全
 
 **認證與授權**:
-- JWT Token 認證
-- RBAC 角色權限控制
-- API Key 管理
-- Rate Limiting 防護
+- **JWT Bearer Token**: 所有保護端點需要有效 JWT
+- **用戶資源隔離**: 用戶只能訪問自己的數據 (`WHERE user_id = ?`)
+- **Token 自動過期**: 1小時過期時間，增強安全性
+- **Rate Limiting**: 基於用戶計劃的 API 限流防護
+
+**輸入驗證與防護**:
+- **go-zero 參數驗證**: 自動驗證請求參數格式和類型
+- **SQL 注入防護**: GORM ORM 參數化查詢，避免 SQL 拼接
+- **ASIN 格式驗證**: 強制 10 位字符長度驗證
+- **錯誤信息脫敏**: 不暴露內部系統錯誤詳情
 
 ### 資料安全
 
 **敏感資料保護**:
-- 密碼 bcrypt 加密
-- API Token 環境變量管理
-- 數據庫連接 SSL/TLS
-- 敏感日誌脫敏
+- **密碼加密**: bcrypt 雜湊存儲，不可逆加密
+- **API 密鑰管理**: 環境變數管理，不在代碼中硬編碼
+- **數據庫連接**: 支援 SSL/TLS 連接加密
+- **敏感日誌脫敏**: 日誌中不記錄密碼、Token 等敏感信息
+
+**訪問控制**:
+- **用戶數據隔離**: 每個用戶只能訪問自己創建的資源
+- **事務完整性**: 使用數據庫事務確保數據一致性
+- **外鍵約束**: 確保數據關聯完整性
 
 ### 網路安全
 
 **安全防護**:
-- HTTPS 強制加密傳輸
-- CORS 跨域策略
-- 安全標頭配置
-- DDoS 防護
+- **HTTPS 強制加密**: Caddy 自動配置，無需手動管理
+- **反向代理**: Caddy 隱藏內部服務端口，提供統一入口
+- **訪問日誌**: JSON 格式日誌記錄，便於安全審計
+- **服務隔離**: 微服務架構，服務間通過內部網絡通信
 
 ## 效能優化策略
 
