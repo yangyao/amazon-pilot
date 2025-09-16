@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"time"
 
-	"amazonpilot/internal/product/svc"
-	"amazonpilot/internal/product/types"
 	"amazonpilot/internal/pkg/cache"
 	"amazonpilot/internal/pkg/errors"
 	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
+	"amazonpilot/internal/product/svc"
+	"amazonpilot/internal/product/types"
 
 	"github.com/hibiken/asynq"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -49,11 +49,11 @@ func (l *RefreshProductDataLogic) RefreshProductData(req *types.RefreshProductDa
 
 	// 创建异步任务payload
 	taskPayload := map[string]interface{}{
-		"product_id":    trackedProduct.ProductID,
-		"tracked_id":    trackedProduct.ID,
-		"asin":          trackedProduct.Product.ASIN,
-		"user_id":       userIDStr,
-		"requested_at":  time.Now().Format(time.RFC3339),
+		"product_id":   trackedProduct.ProductID,
+		"tracked_id":   trackedProduct.ID,
+		"asin":         trackedProduct.Product.ASIN,
+		"user_id":      userIDStr,
+		"requested_at": time.Now().Format(time.RFC3339),
 	}
 
 	payloadBytes, err := json.Marshal(taskPayload)
@@ -97,14 +97,6 @@ func (l *RefreshProductDataLogic) invalidateProductCache(asin, productID, userID
 	// 使用统一的缓存key清理产品数据缓存
 	productDataKey := cache.ProductDataKey(productID)
 	l.svcCtx.RedisClient.Del(ctx, productDataKey)
-
-	// 清理价格缓存
-	priceCacheKey := cache.PriceCacheKey(productID)
-	l.svcCtx.RedisClient.Del(ctx, priceCacheKey)
-
-	// 清理排名缓存
-	rankingCacheKey := cache.RankingCacheKey(productID)
-	l.svcCtx.RedisClient.Del(ctx, rankingCacheKey)
 
 	l.Infof("Invalidated product cache for product %s (ASIN: %s)", productID, asin)
 }

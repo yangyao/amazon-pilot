@@ -327,7 +327,6 @@ func (p *ApifyTaskProcessor) detectAndRecordAnomalies(ctx context.Context, paylo
 		}
 	}
 
-
 	// 3. 批量保存异常事件
 	if len(anomalyEvents) > 0 {
 		if err := p.db.Create(&anomalyEvents).Error; err != nil {
@@ -380,18 +379,6 @@ func (p *ApifyTaskProcessor) invalidateProductCache(ctx context.Context, asin, p
 	productDataKey := cache.ProductDataKey(productID)
 	if err := p.redisClient.Del(ctx, productDataKey).Err(); err != nil {
 		p.logger.Error(ctx, "Failed to delete product data cache", "key", productDataKey, "error", err)
-	}
-
-	// 清理价格缓存
-	priceCacheKey := cache.PriceCacheKey(productID)
-	if err := p.redisClient.Del(ctx, priceCacheKey).Err(); err != nil {
-		p.logger.Error(ctx, "Failed to delete price cache", "key", priceCacheKey, "error", err)
-	}
-
-	// 清理排名缓存
-	rankingCacheKey := cache.RankingCacheKey(productID)
-	if err := p.redisClient.Del(ctx, rankingCacheKey).Err(); err != nil {
-		p.logger.Error(ctx, "Failed to delete ranking cache", "key", rankingCacheKey, "error", err)
 	}
 
 	p.logger.Info(ctx, "Invalidated product cache",
