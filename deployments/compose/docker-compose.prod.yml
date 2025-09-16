@@ -1,8 +1,8 @@
 # 生产环境覆盖配置
 # 使用方式: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+# 注意: 生产环境使用 Supabase 作为数据库，不需要本地 PostgreSQL
 
 services:
-  # 生产环境不需要 Caddy 容器（使用物理机的 Caddy）
   
   # 生产环境前端服务需要对外暴露端口
   amazon-pilot-frontend-service:
@@ -17,16 +17,6 @@ services:
     ports:
       - "8080:8080"  # 物理机 Caddy 可以访问
 
-  # 生产环境特定配置
-  amazon-pilot-postgres:
-    environment:
-      - POSTGRES_DB=amazon_pilot
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-amazon123}  # 使用环境变量
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      # 生产环境不自动初始化数据
-      # - ./init-db:/docker-entrypoint-initdb.d:ro
 
   amazon-pilot-redis:
     command: redis-server --appendonly yes

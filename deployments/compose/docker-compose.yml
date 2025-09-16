@@ -1,29 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL 数据库
-  amazon-pilot-postgres:
-    image: postgres:15-alpine
-    container_name: amazon-pilot-postgres
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_DB=amazon_pilot
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=amazon123
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      # Auto-init schema and seed data on first run
-      - ./init-db:/docker-entrypoint-initdb.d:ro
-    restart: unless-stopped
-    networks:
-      - amazon-pilot-network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
-
   # Redis 缓存和队列
   amazon-pilot-redis:
     image: redis:7-alpine
@@ -61,7 +38,6 @@ services:
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-amazon-pilot-jwt-secret-2025}
       - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE:-86400}
     depends_on:
-      - amazon-pilot-postgres
       - amazon-pilot-redis
     restart: unless-stopped
     networks:
@@ -92,7 +68,6 @@ services:
       - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE:-86400}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN}
     depends_on:
-      - amazon-pilot-postgres
       - amazon-pilot-redis
     restart: unless-stopped
     networks:
@@ -124,7 +99,6 @@ services:
       - APIFY_API_TOKEN=${APIFY_API_TOKEN}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
-      - amazon-pilot-postgres
       - amazon-pilot-redis
     restart: unless-stopped
     networks:
@@ -155,7 +129,6 @@ services:
       - JWT_ACCESS_EXPIRE=${JWT_ACCESS_EXPIRE:-86400}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
-      - amazon-pilot-postgres
       - amazon-pilot-redis
     restart: unless-stopped
     networks:
@@ -220,7 +193,6 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY}
     depends_on:
-      - amazon-pilot-postgres
       - amazon-pilot-redis
     restart: unless-stopped
     networks:
@@ -246,7 +218,6 @@ services:
       - REDIS_DB=${REDIS_DB}
       - SCHEDULER_PRODUCT_UPDATE_INTERVAL=${SCHEDULER_PRODUCT_UPDATE_INTERVAL}
     depends_on:
-      - amazon-pilot-postgres
       - amazon-pilot-redis
     restart: unless-stopped
     networks:
@@ -360,7 +331,6 @@ services:
     environment:
       - REDIS_ADDR=redis://amazon-pilot-redis:6379
     depends_on:
-      - amazon-pilot-postgres
       - amazon-pilot-redis
     restart: unless-stopped
     networks:
@@ -411,7 +381,6 @@ services:
         max-file: "3"
 
 volumes:
-  postgres_data:
   redis_data:
   prometheus_data:
   grafana_data:
