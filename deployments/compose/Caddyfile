@@ -12,9 +12,9 @@
         reverse_proxy amazon-pilot-frontend-service:3000
     }
     
-    # 日志（可选）
+    # 日志 - JSON 格式
     log {
         output stdout
-        format console
+        format json  # 使用纯 JSON 格式，更容易解析
     }
 }

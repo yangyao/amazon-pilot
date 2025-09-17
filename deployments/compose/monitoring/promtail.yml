@@ -18,14 +18,47 @@ scrape_configs:
           job: docker
           __path__: /var/lib/docker/containers/*/*log
     pipeline_stages:
+      # 解析 Docker 日志并提取容器信息
       - docker: {}
+
+      # 检测并解析 JSON 格式的日志
+      - json:
+          expressions:
+            level: level
+            msg: msg
+            request: request
+            status: status
+            duration: duration
+
+      # 从文件路径提取容器ID
+      - regex:
+          source: filename
+          expression: '/var/lib/docker/containers/(?P<container_id>[^/]+)/'
+
+      # 添加容器标签
+      - labels:
+          container_id:
+          container_name:
+          compose_project:
+          compose_service:
+
+      # 时间戳处理
       - timestamp:
           source: time
           format: RFC3339Nano
+
       # 过滤太旧的日志（可选）
       - drop:
           older_than: 720h  # 丢弃超过30天的日志
           drop_counter_reason: "too_old"
+
+      # 重命名 filename 为容器名称（如果存在）
+      - labeldrop:
+          - filename  # 删除原始文件名
+
+      # 输出标签
+      - output:
+          source: container_name
 
   # 系统日志（如果需要）
   - job_name: system
