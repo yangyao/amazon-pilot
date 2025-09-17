@@ -1,12 +1,9 @@
 package config
 
-import "github.com/zeromicro/go-zero/rest"
+import (
+	"amazonpilot/internal/pkg/config"
+)
 
 type Config struct {
-	rest.RestConf
-	Auth struct {
-		JWTSecret    string `json:"jwtSecret"`
-		AccessSecret string `json:"accessSecret"`
-		AccessExpire int64  `json:"accessExpire"`
-	}
+	config.BaseConfig
 }

@@ -1,6 +1,8 @@
 package logic
 
 import (
+	"amazonpilot/internal/pkg/constants"
+	"amazonpilot/internal/pkg/logger"
 	"context"
 	"encoding/json"
 	"os"
@@ -9,7 +11,6 @@ import (
 	"amazonpilot/internal/competitor/types"
 	"amazonpilot/internal/pkg/errors"
 	"amazonpilot/internal/pkg/llm"
-	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
 
@@ -105,8 +106,13 @@ func (l *GenerateReportLogic) GenerateReport(req *types.GenerateReportRequest) (
 	// 准备分析数据
 	analysisData := llm.CompetitorAnalysisData{
 		MainProduct: llm.ProductData{
-			ASIN:        analysisGroup.MainProduct.ASIN,
-			Title:       func() string { if analysisGroup.MainProduct.Title != nil { return *analysisGroup.MainProduct.Title }; return "" }(),
+			ASIN: analysisGroup.MainProduct.ASIN,
+			Title: func() string {
+				if analysisGroup.MainProduct.Title != nil {
+					return *analysisGroup.MainProduct.Title
+				}
+				return ""
+			}(),
 			Price:       mainProductData.Price,
 			Currency:    mainProductData.Currency,
 			BSR:         mainProductData.BSR,
@@ -129,8 +135,13 @@ func (l *GenerateReportLogic) GenerateReport(req *types.GenerateReportRequest) (
 		}
 
 		analysisData.Competitors[i] = llm.ProductData{
-			ASIN:        comp.Product.ASIN,
-			Title:       func() string { if comp.Product.Title != nil { return *comp.Product.Title }; return "" }(),
+			ASIN: comp.Product.ASIN,
+			Title: func() string {
+				if comp.Product.Title != nil {
+					return *comp.Product.Title
+				}
+				return ""
+			}(),
 			Price:       competitorData.Price,
 			Currency:    competitorData.Currency,
 			BSR:         competitorData.BSR,
@@ -177,12 +188,10 @@ func (l *GenerateReportLogic) GenerateReport(req *types.GenerateReportRequest) (
 	}
 
 	// 记录业务日志
-	serviceLogger := logger.NewServiceLogger("competitor")
-	serviceLogger.LogBusinessOperation(l.ctx, "generate_report_completed", "analysis_group", req.AnalysisID, "success",
+	logger.GlobalLogger(constants.ServiceCompetitor).LogBusinessOperation(l.ctx, "generate_report_completed", "analysis_group", req.AnalysisID, "success",
 		"report_id", analysisResult.ID,
 		"competitor_count", len(analysisGroup.Competitors),
-		"has_recommendations", len(report.Recommendations),
-	)
+		"has_recommendations", len(report.Recommendations))
 
 	return resp, nil
 }
@@ -232,4 +241,3 @@ func (l *GenerateReportLogic) getLatestProductData(productID string) (*ProductDa
 
 	return data, nil
 }
-

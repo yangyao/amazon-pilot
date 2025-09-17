@@ -1,13 +1,14 @@
 package logic
 
 import (
+	"amazonpilot/internal/pkg/constants"
+	"amazonpilot/internal/pkg/logger"
 	"context"
 	"time"
 
 	"amazonpilot/internal/optimization/svc"
 	"amazonpilot/internal/optimization/types"
 	"amazonpilot/internal/pkg/errors"
-	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
 
@@ -86,12 +87,10 @@ func (l *CreateOptimizationTaskLogic) CreateOptimizationTask(req *types.CreateOp
 		CreatedAt: analysis.StartedAt.Format(time.RFC3339),
 	}
 
-	serviceLogger := logger.NewServiceLogger("optimization")
-	serviceLogger.LogBusinessOperation(l.ctx, "create_optimization_task", "optimization_task", analysis.ID, "success",
+	logger.GlobalLogger(constants.ServiceOptimization).LogBusinessOperation(l.ctx, "create_optimization_task", "optimization_task", analysis.ID, "success",
 		"title", req.Title,
 		"product_id", req.ProductID,
-		"type", req.OptimizationType,
-	)
+		"type", req.OptimizationType)
 
 	return resp, nil
 }

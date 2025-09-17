@@ -1,6 +1,13 @@
 Name: competitor-api
 Host: 0.0.0.0
 Port: 8003
+
+# Disable stat logging
+Log:
+  Mode: console
+  Level: info
+  Stat: false
+
 Timeout: 30000
 
 DevServer:

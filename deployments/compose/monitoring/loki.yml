@@ -3,6 +3,7 @@ auth_enabled: false
 server:
   http_listen_port: 3100
   grpc_listen_port: 9096
+  log_level: warn  # 减少日志输出，只显示警告和错误
 
 common:
   path_prefix: /loki

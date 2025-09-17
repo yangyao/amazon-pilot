@@ -1,12 +1,12 @@
 package logic
 
 import (
-	"context"
-
 	"amazonpilot/internal/auth/svc"
 	"amazonpilot/internal/auth/types"
+	"amazonpilot/internal/pkg/constants"
 	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/utils"
+	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -36,8 +36,7 @@ func (l *LogoutLogic) Logout() (resp *types.LogoutResponse, err error) {
 	}
 
 	// 记录登出日志
-	serviceLogger := logger.NewServiceLogger("auth")
-	serviceLogger.LogBusinessOperation(l.ctx, "logout", "user", userIDStr, "success")
+	logger.GlobalLogger(constants.ServiceAuth).LogBusinessOperation(l.ctx, "logout", "user", userIDStr, "success")
 
 	return resp, nil
 }

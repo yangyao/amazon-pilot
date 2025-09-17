@@ -2,6 +2,12 @@ Name: auth-api
 Host: 0.0.0.0
 Port: 8001
 
+# Disable stat logging
+Log:
+  Mode: console
+  Level: info
+  Stat: false
+
 DevServer:
   Enabled: true
   Port: 9001

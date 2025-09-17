@@ -2,16 +2,15 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
-	"os"
-	"strconv"
+	"log/slog"
 
 	"amazonpilot/internal/competitor/config"
 	"amazonpilot/internal/competitor/handler"
 	"amazonpilot/internal/competitor/svc"
+	baseconfig "amazonpilot/internal/pkg/config"
+	"amazonpilot/internal/pkg/constants"
+	"amazonpilot/internal/pkg/logger"
 
-	"github.com/joho/godotenv"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
 )
@@ -21,32 +20,32 @@ var configFile = flag.String("f", "cmd/competitor/etc/competitor-api.yaml", "the
 func main() {
 	flag.Parse()
 
-	// 加载.env文件
-	if err := godotenv.Load(".env"); err != nil {
-		log.Printf("Warning: .env file not found: %v", err)
+	serviceName := constants.ServiceCompetitor
+
+	// 初始化结构化日志
+	logger.InitStructuredLogger(serviceName)
+
+	// 加载环境变量配置
+	envCfg := baseconfig.MustLoadEnvConfig(serviceName)
+
+	// 验证必需的配置
+	if err := envCfg.ValidateRequired(serviceName, []string{"DATABASE_DSN", "JWT_SECRET", "APIFY_API_TOKEN", "OPENAI_API_KEY"}); err != nil {
+		panic(err)
 	}
 
+	// 加载YAML配置
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 
-	// 从环境变量设置Auth配置到config中
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		panic("JWT_SECRET environment variable is required")
-	}
-	accessExpireStr := os.Getenv("JWT_ACCESS_EXPIRE")
-	if accessExpireStr == "" {
-		panic("JWT_ACCESS_EXPIRE environment variable is required")
-	}
-	accessExpire, err := strconv.ParseInt(accessExpireStr, 10, 64)
-	if err != nil {
-		panic("Invalid JWT_ACCESS_EXPIRE: " + err.Error())
+	// 设置Auth配置到config中（供自动生成的routes.go使用）
+	c.Auth = baseconfig.Auth{
+		JWTSecret:    envCfg.JWT.Secret,
+		AccessSecret: envCfg.JWT.AccessSecret,
+		AccessExpire: envCfg.JWT.AccessExpire,
 	}
 
-	c.Auth.JWTSecret = jwtSecret
-	c.Auth.AccessSecret = jwtSecret
-	c.Auth.AccessExpire = accessExpire
-
+	// 传递环境配置给ServiceContext
+	c.EnvConfig = envCfg
 
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
@@ -54,6 +53,6 @@ func main() {
 	ctx := svc.NewServiceContext(c)
 	handler.RegisterHandlers(server, ctx)
 
-	fmt.Printf("Starting competitor server at %s:%d...\n", c.Host, c.Port)
+	slog.Info("Competitor server is starting", "host", c.Host, "port", c.Port)
 	server.Start()
 }

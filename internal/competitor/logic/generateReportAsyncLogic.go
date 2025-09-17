@@ -1,6 +1,8 @@
 package logic
 
 import (
+	"amazonpilot/internal/pkg/constants"
+	"amazonpilot/internal/pkg/logger"
 	"context"
 	"encoding/json"
 	"time"
@@ -8,7 +10,6 @@ import (
 	"amazonpilot/internal/competitor/svc"
 	"amazonpilot/internal/competitor/types"
 	"amazonpilot/internal/pkg/errors"
-	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/tasks"
 	"amazonpilot/internal/pkg/utils"
@@ -128,12 +129,10 @@ func (l *GenerateReportAsyncLogic) GenerateReportAsync(req *types.GenerateReport
 	}
 
 	// 记录业务日志
-	serviceLogger := logger.NewServiceLogger("competitor")
-	serviceLogger.LogBusinessOperation(l.ctx, "generate_report_async_submitted", "analysis_group", req.AnalysisID, "success",
+	logger.GlobalLogger(constants.ServiceCompetitor).LogBusinessOperation(l.ctx, "generate_report_async_submitted", "analysis_group", req.AnalysisID, "success",
 		"task_id", taskID,
 		"queue_id", info.ID,
-		"force", req.Force,
-	)
+		"force", req.Force)
 
 	return resp, nil
 }

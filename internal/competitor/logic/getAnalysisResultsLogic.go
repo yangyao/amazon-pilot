@@ -1,15 +1,15 @@
 package logic
 
 import (
-	"context"
-	"encoding/json"
-
 	"amazonpilot/internal/competitor/svc"
 	"amazonpilot/internal/competitor/types"
+	"amazonpilot/internal/pkg/constants"
 	"amazonpilot/internal/pkg/errors"
 	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
+	"context"
+	"encoding/json"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
@@ -62,9 +62,14 @@ func (l *GetAnalysisResultsLogic) GetAnalysisResults(req *types.GetAnalysisReque
 
 	// 构建响应
 	resp = &types.GetAnalysisResponse{
-		ID:          analysisGroup.ID,
-		Name:        analysisGroup.Name,
-		Description: func() string { if analysisGroup.Description != nil { return *analysisGroup.Description }; return "" }(),
+		ID:   analysisGroup.ID,
+		Name: analysisGroup.Name,
+		Description: func() string {
+			if analysisGroup.Description != nil {
+				return *analysisGroup.Description
+			}
+			return ""
+		}(),
 		Status:      reportStatus,
 		LastUpdated: analysisGroup.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -78,10 +83,20 @@ func (l *GetAnalysisResultsLogic) GetAnalysisResults(req *types.GetAnalysisReque
 	}
 
 	resp.MainProduct = types.CompetitorProduct{
-		ID:          analysisGroup.MainProduct.ID,
-		ASIN:        analysisGroup.MainProduct.ASIN,
-		Title:       func() string { if analysisGroup.MainProduct.Title != nil { return *analysisGroup.MainProduct.Title }; return "" }(),
-		Brand:       func() string { if analysisGroup.MainProduct.Brand != nil { return *analysisGroup.MainProduct.Brand }; return "" }(),
+		ID:   analysisGroup.MainProduct.ID,
+		ASIN: analysisGroup.MainProduct.ASIN,
+		Title: func() string {
+			if analysisGroup.MainProduct.Title != nil {
+				return *analysisGroup.MainProduct.Title
+			}
+			return ""
+		}(),
+		Brand: func() string {
+			if analysisGroup.MainProduct.Brand != nil {
+				return *analysisGroup.MainProduct.Brand
+			}
+			return ""
+		}(),
 		Price:       mainProductData.Price,
 		BSR:         mainProductData.BSR,
 		Rating:      mainProductData.Rating,
@@ -99,10 +114,20 @@ func (l *GetAnalysisResultsLogic) GetAnalysisResults(req *types.GetAnalysisReque
 		}
 
 		resp.Competitors[i] = types.CompetitorProduct{
-			ID:          comp.Product.ID,
-			ASIN:        comp.Product.ASIN,
-			Title:       func() string { if comp.Product.Title != nil { return *comp.Product.Title }; return "" }(),
-			Brand:       func() string { if comp.Product.Brand != nil { return *comp.Product.Brand }; return "" }(),
+			ID:   comp.Product.ID,
+			ASIN: comp.Product.ASIN,
+			Title: func() string {
+				if comp.Product.Title != nil {
+					return *comp.Product.Title
+				}
+				return ""
+			}(),
+			Brand: func() string {
+				if comp.Product.Brand != nil {
+					return *comp.Product.Brand
+				}
+				return ""
+			}(),
 			Price:       competitorData.Price,
 			BSR:         competitorData.BSR,
 			Rating:      competitorData.Rating,
@@ -127,11 +152,9 @@ func (l *GetAnalysisResultsLogic) GetAnalysisResults(req *types.GetAnalysisReque
 	}
 
 	// 记录业务日志
-	serviceLogger := logger.NewServiceLogger("competitor")
-	serviceLogger.LogBusinessOperation(l.ctx, "get_analysis_results", "analysis_group", req.AnalysisID, "success",
+	logger.GlobalLogger(constants.ServiceCompetitor).LogBusinessOperation(l.ctx, "get_analysis_results", "analysis_group", req.AnalysisID, "success",
 		"status", reportStatus,
-		"competitor_count", len(analysisGroup.Competitors),
-	)
+		"competitor_count", len(analysisGroup.Competitors))
 
 	return resp, nil
 }

@@ -1,14 +1,14 @@
 package logic
 
 import (
-	"context"
-
 	"amazonpilot/internal/optimization/svc"
 	"amazonpilot/internal/optimization/types"
+	"amazonpilot/internal/pkg/constants"
 	"amazonpilot/internal/pkg/errors"
 	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
+	"context"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -61,7 +61,7 @@ func (l *GetOptimizationStatsLogic) GetOptimizationStats() (resp *types.GetStats
 		Where("optimization_analyses.user_id = ?", userIDStr).
 		Select("AVG(optimization_suggestions.impact_score) as avg_score").
 		Row()
-	
+
 	if err = row.Scan(&avgImpactScore); err != nil {
 		// 如果没有数据，默认为0
 		avgImpactScore = 0
@@ -74,12 +74,10 @@ func (l *GetOptimizationStatsLogic) GetOptimizationStats() (resp *types.GetStats
 		AverageImpactScore: avgImpactScore,
 	}
 
-	serviceLogger := logger.NewServiceLogger("optimization")
-	serviceLogger.LogBusinessOperation(l.ctx, "get_optimization_stats", "optimization_stats", "", "success",
+	logger.GlobalLogger(constants.ServiceOptimization).LogBusinessOperation(l.ctx, "get_optimization_stats", "optimization_stats", "", "success",
 		"total_tasks", totalTasks,
 		"pending_tasks", pendingTasks,
-		"completed_tasks", completedTasks,
-	)
+		"completed_tasks", completedTasks)
 
 	return resp, nil
 }

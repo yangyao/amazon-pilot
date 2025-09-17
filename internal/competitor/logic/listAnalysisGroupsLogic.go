@@ -1,13 +1,14 @@
 package logic
 
 import (
+	"amazonpilot/internal/pkg/constants"
+	"amazonpilot/internal/pkg/logger"
 	"context"
 	"time"
 
 	"amazonpilot/internal/competitor/svc"
 	"amazonpilot/internal/competitor/types"
 	"amazonpilot/internal/pkg/errors"
-	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
 
@@ -36,7 +37,7 @@ func (l *ListAnalysisGroupsLogic) ListAnalysisGroups(req *types.ListAnalysisRequ
 
 	// 分页参数
 	offset := (req.Page - 1) * req.Limit
-	
+
 	// 构建查询
 	query := l.svcCtx.DB.Where("user_id = ?", userIDStr)
 	if req.Status != "" {
@@ -101,11 +102,9 @@ func (l *ListAnalysisGroupsLogic) ListAnalysisGroups(req *types.ListAnalysisRequ
 		},
 	}
 
-	serviceLogger := logger.NewServiceLogger("competitor")
-	serviceLogger.LogBusinessOperation(l.ctx, "list_analysis_groups", "competitor_group", "", "success",
+	logger.GlobalLogger(constants.ServiceCompetitor).LogBusinessOperation(l.ctx, "list_analysis_groups", "competitor_group", "", "success",
 		"total_count", total,
-		"page", req.Page,
-	)
+		"page", req.Page)
 
 	return resp, nil
 }

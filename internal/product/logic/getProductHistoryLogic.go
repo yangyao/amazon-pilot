@@ -1,15 +1,16 @@
 package logic
 
 import (
+	"amazonpilot/internal/pkg/constants"
+	"amazonpilot/internal/pkg/logger"
 	"context"
 	"time"
 
-	"amazonpilot/internal/product/svc"
-	"amazonpilot/internal/product/types"
 	"amazonpilot/internal/pkg/errors"
-	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
+	"amazonpilot/internal/product/svc"
+	"amazonpilot/internal/product/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
@@ -174,12 +175,10 @@ func (l *GetProductHistoryLogic) GetProductHistory(req *types.GetHistoryRequest)
 	}
 
 	// 记录业务日志
-	serviceLogger := logger.NewServiceLogger("product")
-	serviceLogger.LogBusinessOperation(l.ctx, "get_product_history", "product", req.ProductID, "success",
+	logger.GlobalLogger(constants.ServiceProduct).LogBusinessOperation(l.ctx, "get_product_history", "product", req.ProductID, "success",
 		"metric", metric,
 		"period", period,
-		"data_points", len(historyData),
-	)
+		"data_points", len(historyData))
 
 	return resp, nil
 }

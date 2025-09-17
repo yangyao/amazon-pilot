@@ -1,13 +1,14 @@
 package logic
 
 import (
+	"amazonpilot/internal/pkg/constants"
+	"amazonpilot/internal/pkg/logger"
 	"context"
 	"time"
 
 	"amazonpilot/internal/competitor/svc"
 	"amazonpilot/internal/competitor/types"
 	"amazonpilot/internal/pkg/errors"
-	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
 
@@ -117,11 +118,9 @@ func (l *CreateAnalysisGroupLogic) CreateAnalysisGroup(req *types.CreateAnalysis
 		CreatedAt:     analysisGroup.CreatedAt.Format(time.RFC3339),
 	}
 
-	serviceLogger := logger.NewServiceLogger("competitor")
-	serviceLogger.LogBusinessOperation(l.ctx, "create_analysis_group", "competitor_group", analysisGroup.ID, "success",
+	logger.GlobalLogger(constants.ServiceCompetitor).LogBusinessOperation(l.ctx, "create_analysis_group", "competitor_group", analysisGroup.ID, "success",
 		"name", req.Name,
-		"main_product_id", req.MainProductID,
-	)
+		"main_product_id", req.MainProductID)
 
 	return resp, nil
 }

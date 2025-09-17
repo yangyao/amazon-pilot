@@ -1,15 +1,15 @@
 package logic
 
 import (
-	"context"
-	"encoding/json"
-
-	"amazonpilot/internal/product/svc"
-	"amazonpilot/internal/product/types"
+	"amazonpilot/internal/pkg/constants"
 	"amazonpilot/internal/pkg/errors"
 	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
+	"amazonpilot/internal/product/svc"
+	"amazonpilot/internal/product/types"
+	"context"
+	"encoding/json"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
@@ -57,7 +57,7 @@ func (l *GetProductDetailsLogic) GetProductDetails(req *types.GetProductRequest)
 	// 解析JSON字段
 	var images []string
 	var bulletPoints []string
-	
+
 	if product.Images != nil {
 		json.Unmarshal(product.Images, &images)
 	}
@@ -81,9 +81,9 @@ func (l *GetProductDetailsLogic) GetProductDetails(req *types.GetProductRequest)
 		Category:     getStringValue(product.Category),
 		CurrentPrice: 0.0, // TODO: 从最新价格历史获取
 		Currency:     "USD",
-		BSR:          0,    // TODO: 从最新排名历史获取
-		Rating:       0.0,  // TODO: 从最新排名历史获取
-		ReviewCount:  0,    // TODO: 从最新排名历史获取
+		BSR:          0,   // TODO: 从最新排名历史获取
+		Rating:       0.0, // TODO: 从最新排名历史获取
+		ReviewCount:  0,   // TODO: 从最新排名历史获取
 		Images:       images,
 		BulletPoints: bulletPoints,
 		TrackingHistory: types.TrackingHistorySummary{
@@ -95,11 +95,9 @@ func (l *GetProductDetailsLogic) GetProductDetails(req *types.GetProductRequest)
 	}
 
 	// 记录业务日志
-	serviceLogger := logger.NewServiceLogger("product")
-	serviceLogger.LogBusinessOperation(l.ctx, "get_product_details", "product", product.ID, "success",
+	logger.GlobalLogger(constants.ServiceProduct).LogBusinessOperation(l.ctx, "get_product_details", "product", product.ID, "success",
 		"asin", product.ASIN,
-		"tracking_id", trackedProduct.ID,
-	)
+		"tracking_id", trackedProduct.ID)
 
 	return resp, nil
 }

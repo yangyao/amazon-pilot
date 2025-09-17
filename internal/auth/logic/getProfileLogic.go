@@ -1,13 +1,14 @@
 package logic
 
 import (
+	"amazonpilot/internal/pkg/constants"
+	"amazonpilot/internal/pkg/logger"
 	"context"
 	"time"
 
 	"amazonpilot/internal/auth/svc"
 	"amazonpilot/internal/auth/types"
 	"amazonpilot/internal/pkg/errors"
-	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
 
@@ -49,19 +50,22 @@ func (l *GetProfileLogic) GetProfile() (resp *types.ProfileResponse, err error) 
 	// 构建响应 - 简化版本，无用户设置（按questions.md要求）
 	resp = &types.ProfileResponse{
 		User: types.User{
-			ID:          user.ID,
-			Email:       user.Email,
-			CompanyName: func() string { if user.CompanyName != nil { return *user.CompanyName }; return "" }(),
-			Plan:        user.PlanType,
-			IsActive:    user.IsActive,
-			CreatedAt:   user.CreatedAt.Format(time.RFC3339),
+			ID:    user.ID,
+			Email: user.Email,
+			CompanyName: func() string {
+				if user.CompanyName != nil {
+					return *user.CompanyName
+				}
+				return ""
+			}(),
+			Plan:      user.PlanType,
+			IsActive:  user.IsActive,
+			CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		},
-		// Settings removed - not required by questions.md
 	}
 
 	// 使用结构化日志记录业务操作
-	serviceLogger := logger.NewServiceLogger("auth")
-	serviceLogger.LogBusinessOperation(l.ctx, "get_profile", "user", userIDStr, "success")
-	
+	logger.GlobalLogger(constants.ServiceAuth).LogBusinessOperation(l.ctx, "get_profile", "user", userIDStr, "success")
+
 	return resp, nil
 }

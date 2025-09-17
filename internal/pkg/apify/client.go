@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"amazonpilot/internal/pkg/logger"
 )
 
 // Client Apify API客户端
@@ -21,7 +19,6 @@ type Client struct {
 	apiToken   string
 	baseURL    string
 	httpClient *http.Client
-	logger     *logger.ServiceLogger
 }
 
 // ProductData Amazon产品数据结构
@@ -75,7 +72,6 @@ func NewClient(apiToken string) *Client {
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		logger: logger.NewServiceLogger("apify"),
 	}
 }
 
@@ -133,7 +129,11 @@ func (c *Client) RunAmazonProductActor(ctx context.Context, asins []string) (*Ru
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	c.logger.LogBusinessOperation(ctx, "apify_actor_started", "apify_run", runResp.Data.ID, "success",
+	slog.Info("Business operation completed",
+		"operation", "apify_actor_started",
+		"resource_type", "apify_run",
+		"resource_id", runResp.Data.ID,
+		"result", "success",
 		"actor_id", actorID,
 		"asins_count", len(asins),
 	)
@@ -176,7 +176,11 @@ func (c *Client) WaitForRunCompletion(ctx context.Context, runID string, timeout
 
 			switch status {
 			case "SUCCEEDED":
-				c.logger.LogBusinessOperation(ctx, "apify_run_completed", "apify_run", runID, "success")
+				slog.Info("Business operation completed",
+					"operation", "apify_run_completed",
+					"resource_type", "apify_run",
+					"resource_id", runID,
+					"result", "success")
 				return nil
 			case "FAILED", "ABORTED", "TIMED-OUT":
 				return fmt.Errorf("run %s failed with status: %s", runID, status)
@@ -237,7 +241,11 @@ func (c *Client) GetRunResults(ctx context.Context, runID string) ([]ProductData
 		products = append(products, *normalizedProduct)
 	}
 
-	c.logger.LogBusinessOperation(ctx, "apify_results_fetched", "apify_run", runID, "success",
+	slog.Info("Business operation completed",
+		"operation", "apify_results_fetched",
+		"resource_type", "apify_run",
+		"resource_id", runID,
+		"result", "success",
 		"products_count", len(products),
 	)
 
@@ -457,7 +465,11 @@ func (c *Client) FetchProductData(ctx context.Context, asins []string, timeout t
 		products[i].ScrapedAt = now
 	}
 
-	c.logger.LogBusinessOperation(ctx, "product_data_fetch_complete", "apify", "sync", "success",
+	slog.Info("Business operation completed",
+		"operation", "product_data_fetch_complete",
+		"resource_type", "apify",
+		"resource_id", "sync",
+		"result", "success",
 		"asins_requested", len(asins),
 		"products_returned", len(products),
 	)

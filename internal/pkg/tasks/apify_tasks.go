@@ -11,6 +11,7 @@ import (
 
 	"amazonpilot/internal/pkg/apify"
 	"amazonpilot/internal/pkg/cache"
+	"amazonpilot/internal/pkg/constants"
 	"amazonpilot/internal/pkg/database"
 	"amazonpilot/internal/pkg/llm"
 	"amazonpilot/internal/pkg/logger"
@@ -71,7 +72,7 @@ func NewApifyTaskProcessor(dsn string, apifyToken string, redisAddr string) *Api
 	}
 	asynqClient := asynq.NewClient(redisOpt)
 
-	serviceLogger := logger.NewServiceLogger("apify-worker")
+	serviceLogger := logger.GlobalLogger(constants.ServiceWorker)
 
 	return &ApifyTaskProcessor{
 		db:          db,

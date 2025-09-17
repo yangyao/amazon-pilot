@@ -1,13 +1,14 @@
 package logic
 
 import (
+	"amazonpilot/internal/pkg/constants"
+	"amazonpilot/internal/pkg/logger"
 	"context"
 	"time"
 
 	"amazonpilot/internal/optimization/svc"
 	"amazonpilot/internal/optimization/types"
 	"amazonpilot/internal/pkg/errors"
-	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
 
@@ -36,7 +37,7 @@ func (l *ListOptimizationTasksLogic) ListOptimizationTasks(req *types.ListOptimi
 
 	// 分页参数
 	offset := (req.Page - 1) * req.Limit
-	
+
 	// 构建查询
 	query := l.svcCtx.DB.Where("user_id = ?", userIDStr)
 	if req.Status != "" {
@@ -118,11 +119,9 @@ func (l *ListOptimizationTasksLogic) ListOptimizationTasks(req *types.ListOptimi
 		},
 	}
 
-	serviceLogger := logger.NewServiceLogger("optimization")
-	serviceLogger.LogBusinessOperation(l.ctx, "list_optimization_tasks", "optimization_task", "", "success",
+	logger.GlobalLogger(constants.ServiceOptimization).LogBusinessOperation(l.ctx, "list_optimization_tasks", "optimization_task", "", "success",
 		"total_count", total,
-		"page", req.Page,
-	)
+		"page", req.Page)
 
 	return resp, nil
 }

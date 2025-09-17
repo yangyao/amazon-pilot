@@ -1,63 +1,49 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
-	"os"
 
+	baseconfig "amazonpilot/internal/pkg/config"
+	"amazonpilot/internal/pkg/constants"
 	"amazonpilot/internal/pkg/logger"
 
 	"github.com/hibiken/asynq"
 	"github.com/hibiken/asynqmon"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	// 加载.env文件
-	if err := godotenv.Load(".env"); err != nil {
-		log.Printf("Warning: .env file not found: %v", err)
-	}
+	serviceName := constants.ServiceDashboard
 
 	// 初始化结构化日志
-	logger.InitStructuredLogger()
+	logger.InitStructuredLogger(serviceName)
 
-	// 从环境变量读取Redis配置
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		log.Fatal("REDIS_HOST environment variable is required")
-	}
+	// 加载环境变量配置
+	envCfg := baseconfig.MustLoadEnvConfig(serviceName)
 
-	redisPort := os.Getenv("REDIS_PORT")
-	if redisPort == "" {
-		log.Fatal("REDIS_PORT environment variable is required")
-	}
-
-	// Redis不使用密码
-
-	dashboardPort := os.Getenv("DASHBOARD_PORT")
-	if dashboardPort == "" {
-		dashboardPort = "5555" // 默认端口
-	}
-
-	// 构建Redis连接配置
-	redisAddr := redisHost + ":" + redisPort
-
-	log.Printf("🚀 Starting Asynq Dashboard...")
-	log.Printf("📡 Redis: %s", redisAddr)
-	log.Printf("🌐 Dashboard: http://0.0.0.0:%s", dashboardPort)
-
-	// 创建Redis连接选项（无密码）
-	redisConnOpt := asynq.RedisClientOpt{
-		Addr: redisAddr,
+	// 验证必需的配置
+	if err := envCfg.ValidateRequired(serviceName, []string{"DASHBOARD_PORT"}); err != nil {
+		panic(err)
 	}
 
 	// 启动Asynq Dashboard
 	h := asynqmon.New(asynqmon.Options{
-		RootPath:     "/",
-		RedisConnOpt: redisConnOpt,
+		RootPath: "/",
+		RedisConnOpt: asynq.RedisClientOpt{
+			Addr: envCfg.Redis.Addr,
+			DB:   envCfg.Redis.DB,
+		},
 	})
 
 	// 启动HTTP服务器
-	log.Printf("Dashboard server starting on port %s", dashboardPort)
-	log.Fatal(http.ListenAndServe(":"+dashboardPort, h))
+	slog.Info("Dashboard server is starting",
+		"port", envCfg.Dashboard.Port,
+		"redis", envCfg.Redis.Addr,
+	)
+
+	err := http.ListenAndServe(":"+envCfg.Dashboard.Port, h)
+	if err != nil {
+		slog.Error("Failed to start dashboard server", "error", err)
+		panic(err)
+	}
 }

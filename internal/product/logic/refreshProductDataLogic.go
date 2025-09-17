@@ -1,13 +1,14 @@
 package logic
 
 import (
+	"amazonpilot/internal/pkg/constants"
+	"amazonpilot/internal/pkg/logger"
 	"context"
 	"encoding/json"
 	"time"
 
 	"amazonpilot/internal/pkg/cache"
 	"amazonpilot/internal/pkg/errors"
-	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
 	"amazonpilot/internal/product/svc"
@@ -81,11 +82,9 @@ func (l *RefreshProductDataLogic) RefreshProductData(req *types.RefreshProductDa
 	}
 
 	// 记录业务操作
-	serviceLogger := logger.NewServiceLogger("product")
-	serviceLogger.LogBusinessOperation(l.ctx, "refresh_task_queued", "product", trackedProduct.ProductID, "success",
+	logger.GlobalLogger(constants.ServiceProduct).LogBusinessOperation(l.ctx, "refresh_task_queued", "product", trackedProduct.ProductID, "success",
 		"asin", trackedProduct.Product.ASIN,
-		"task_id", info.ID,
-	)
+		"task_id", info.ID)
 
 	return resp, nil
 }

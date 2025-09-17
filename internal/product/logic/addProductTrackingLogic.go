@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"regexp"
 	"strings"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"amazonpilot/internal/product/types"
 	"amazonpilot/internal/pkg/cache"
 	"amazonpilot/internal/pkg/errors"
-	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/models"
 	"amazonpilot/internal/pkg/utils"
 
@@ -146,13 +146,15 @@ func (l *AddProductTrackingLogic) AddProductTracking(req *types.AddTrackingReque
 	}
 
 	// 使用结构化日志记录业务操作
-	serviceLogger := logger.NewServiceLogger("product")
-	serviceLogger.LogBusinessOperation(l.ctx, "add_tracking", "product", product.ID, "success",
+	slog.Info("Business operation completed",
+		"operation", "add_tracking",
+		"resource_type", "product",
+		"resource_id", product.ID,
+		"result", "success",
 		"asin", req.ASIN,
 		"alias", req.Alias,
 		"frequency", "daily", // Fixed at daily per questions.md
-		"initial_fetch_queued", err == nil,
-	)
+		"initial_fetch_queued", err == nil)
 
 	return resp, nil
 }

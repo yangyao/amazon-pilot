@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
@@ -11,11 +10,11 @@ import (
 	"strings"
 	"time"
 
+	"amazonpilot/internal/pkg/constants"
 	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/metrics"
 	"amazonpilot/internal/pkg/middleware"
 
-	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v2"
 )
@@ -55,13 +54,10 @@ func loadConfig() *Config {
 }
 
 func main() {
-	// 加载.env文件 (敏感信息)
-	if err := godotenv.Load(".env"); err != nil {
-		log.Printf("Warning: .env file not found: %v", err)
-	}
+	serviceName := constants.ServiceGateway
 
 	// 初始化结构化日志
-	logger.InitStructuredLogger()
+	logger.InitStructuredLogger(serviceName)
 
 	// 加载YAML配置
 	config := loadConfig()
@@ -133,11 +129,7 @@ func main() {
 		}
 
 		// 记录日志
-		slog.Info("Proxying request",
-			"service", serviceName,
-			"method", r.Method,
-			"path", r.URL.Path,
-		)
+		slog.Info("Proxying request", "service", serviceName, "method", r.Method, "path", r.URL.Path)
 
 		// 代理请求
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
@@ -148,26 +140,21 @@ func main() {
 		metrics.HTTPRequestsTotal.WithLabelValues(serviceName, r.Method, r.URL.Path, fmt.Sprintf("%d", rw.statusCode)).Inc()
 		metrics.HTTPRequestDuration.WithLabelValues(serviceName, r.Method, r.URL.Path).Observe(float64(duration.Milliseconds()))
 
-		slog.Info("Request completed",
-			"service", serviceName,
-			"status", rw.statusCode,
-			"duration_ms", duration.Milliseconds(),
-		)
+		slog.Info("Request completed", "service", serviceName, "status", rw.statusCode, "duration_ms", duration.Milliseconds())
 	})
 
 	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
-	fmt.Printf("🚀 %s starting on %s\n", config.Name, addr)
-	fmt.Println("📡 Service routing:")
+	slog.Info("Gateway is starting", "name", config.Name, "address", addr)
+	slog.Info("Service routing:")
 	for service, target := range services {
-		fmt.Printf("   /api/%s/* → %s\n", service, target)
+		slog.Info("Service routing", "service", service, "target", target)
 	}
 
-	slog.Info("Starting API Gateway",
-		"address", addr,
-		"services", len(services))
+	slog.Info("API Gateway is starting", "address", addr, "services", len(services))
 
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		slog.Error("Gateway failed", "error", err)
+		panic(err)
 	}
 }
 

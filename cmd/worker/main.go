@@ -5,94 +5,58 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 
+	baseconfig "amazonpilot/internal/pkg/config"
+	"amazonpilot/internal/pkg/constants"
 	"amazonpilot/internal/pkg/logger"
 	"amazonpilot/internal/pkg/tasks"
 
 	"github.com/hibiken/asynq"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	// 加载.env文件
-	if err := godotenv.Load(".env"); err != nil {
-		log.Printf("Warning: .env file not found: %v", err)
-	}
+	serviceName := constants.ServiceWorker
 
 	// 初始化结构化日志
-	logger.InitStructuredLogger()
+	logger.InitStructuredLogger(serviceName)
 
-	// 从环境变量读取配置
-	databaseDSN := os.Getenv("DATABASE_DSN")
-	if databaseDSN == "" {
-		log.Fatal("DATABASE_DSN environment variable is required")
-	}
+	// 加载环境变量配置
+	envCfg := baseconfig.MustLoadEnvConfig(serviceName)
 
-	redisHost := os.Getenv("REDIS_HOST")
-	if redisHost == "" {
-		log.Fatal("REDIS_HOST environment variable is required")
-	}
-
-	redisPort := os.Getenv("REDIS_PORT")
-	if redisPort == "" {
-		log.Fatal("REDIS_PORT environment variable is required")
-	}
-
-	redisDBStr := os.Getenv("REDIS_DB")
-	if redisDBStr == "" {
-		log.Fatal("REDIS_DB environment variable is required")
-	}
-	redisDB, err := strconv.Atoi(redisDBStr)
-	if err != nil {
-		log.Fatal("Invalid REDIS_DB value: " + err.Error())
-	}
-
-	apifyAPIToken := os.Getenv("APIFY_API_TOKEN")
-	if apifyAPIToken == "" {
-		log.Fatal("APIFY_API_TOKEN environment variable is required")
-	}
-
-	concurrencyStr := os.Getenv("WORKER_CONCURRENCY")
-	if concurrencyStr == "" {
-		log.Fatal("WORKER_CONCURRENCY environment variable is required")
-	}
-	concurrency, err := strconv.Atoi(concurrencyStr)
-	if err != nil {
-		log.Fatal("Invalid WORKER_CONCURRENCY value: " + err.Error())
+	// 验证必需的配置
+	if err := envCfg.ValidateRequired(serviceName, []string{"APIFY_API_TOKEN"}); err != nil {
+		panic(err)
 	}
 
 	slog.Info("Amazon Pilot Worker starting",
-		"redis_host", redisHost,
-		"redis_port", redisPort,
-		"redis_db", redisDB,
-		"concurrency", concurrency,
+		"redis", envCfg.Redis.Addr,
+		"redis_db", envCfg.Redis.DB,
+		"concurrency", envCfg.Worker.Concurrency,
 	)
 
-	// Redis连接配置 (从环境变量读取)
-	redisAddr := redisHost + ":" + redisPort
+	// Redis连接配置
 	redisOpt := asynq.RedisClientOpt{
-		Addr: redisAddr,
-		DB:   redisDB,
+		Addr: envCfg.Redis.Addr,
+		DB:   envCfg.Redis.DB,
 	}
 
-	// 创建任务服务器 (使用环境变量配置)
+	// 创建任务服务器
 	srv := asynq.NewServer(redisOpt, asynq.Config{
-		Concurrency: concurrency,
+		Concurrency: envCfg.Worker.Concurrency,
 		Queues: map[string]int{
-			"critical": 6,  // 异常检测、紧急通知
-			"default":  3,  // 一般数据刷新
-			"apify":    2,  // Apify数据获取
-			"cleanup":  1,  // 数据清理
+			"critical": 6, // 异常检测、紧急通知
+			"default":  3, // 一般数据刷新
+			"apify":    2, // Apify数据获取
+			"cleanup":  1, // 数据清理
 		},
 	})
 
-	// 创建任务处理器 (使用环境变量配置)
+	// 创建任务处理器
 	processor := tasks.NewApifyTaskProcessor(
-		databaseDSN,
-		apifyAPIToken,
-		redisAddr,
+		envCfg.Database.DSN,
+		envCfg.APIKeys.ApifyToken,
+		envCfg.Redis.Addr,
 	)
 
 	// 注册任务处理函数
