@@ -45,7 +45,7 @@ EXPOSE 8004
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8004/health || exit 1
+  CMD curl -f http://localhost:8004/api/optimization/health || exit 1
 
 # 启动应用
 WORKDIR /app

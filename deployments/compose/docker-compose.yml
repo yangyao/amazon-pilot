@@ -341,6 +341,27 @@ services:
         max-size: "100m"
         max-file: "3"
 
+  # Redis Commander - 轻量级 Web UI (更稳定)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: amazon-pilot-redis-commander
+    environment:
+      - REDIS_HOSTS=local:amazon-pilot-redis:6379
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=admin123
+    ports:
+      - "8089:8081"
+    depends_on:
+      - amazon-pilot-redis
+    restart: unless-stopped
+    networks:
+      - amazon-pilot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # Loki 日志聚合
   loki:
     image: grafana/loki:3.2.0
