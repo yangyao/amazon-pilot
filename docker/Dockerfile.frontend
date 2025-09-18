@@ -42,9 +42,9 @@ RUN pnpm install --prod
 # 暴露端口
 EXPOSE 3000
 
-# 健康检查
+# 健康检查 - TCP 端口检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+  CMD nc -z localhost 3000 || exit 1
 
 # 启动Next.js应用
 CMD ["pnpm", "start"]
