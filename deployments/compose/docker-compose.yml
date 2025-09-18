@@ -402,11 +402,30 @@ services:
         max-size: "100m"
         max-file: "3"
 
+  # Portainer - Docker 容器管理界面
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: amazon-pilot-portainer
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer_data:/data
+    restart: unless-stopped
+    networks:
+      - amazon-pilot-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
 volumes:
   redis_data:
   prometheus_data:
   grafana_data:
   loki_data:
+  portainer_data:
 
 networks:
   amazon-pilot-network:
